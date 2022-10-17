@@ -32,11 +32,6 @@
 	"language":"nl",
 	"source-url":"https://raw.githubusercontent.com/tvgrabbers/sourcematching/master/sources",
 	"sources":{
-		"5":{
-			"json file":"source-horizon.tv",
-			"version":22,
-			"cattrans type":1,
-			"cattransid":2},
 		"6":{
 			"json file":"source-humo.be",
 			"version":6,
