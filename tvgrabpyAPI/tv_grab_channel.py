@@ -13,7 +13,7 @@ from threading import Thread, Lock, RLock, Event
 from queue import Queue, Empty
 from xml.sax import saxutils
 from copy import copy, deepcopy
-from DataTreeGrab import is_data_value, data_value
+from datatree.datatreegrab import is_data_value, data_value
 
 class Channel_Config(Thread):
     """

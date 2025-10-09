@@ -108,13 +108,14 @@
 # from __future__ import print_function
 
 import os, re, sys, argparse, traceback, datetime, time, codecs
-from DataTreeGrab import version as dtversion
+from datatree.datatreegrab import version as dtversion
+
 if dtversion()[1:4] < (1,4,0):
     sys.stderr.write("tv_grab_py_API requires DataTreeGrab 1.4.0 or higher\n")
     sys.stderr.write('Goto "https://github.com/tvgrabbers/DataTree/releases/latest"\n')
     sys.exit(2)
 
-from DataTreeGrab import is_data_value, data_value
+from datatree.datatreegrab import is_data_value, data_value
 from tvgrabpyAPI import tv_grab_IO, tv_grab_fetch, tv_grab_channel
 import pytz
 

@@ -8,7 +8,7 @@
 import re, sys, traceback, difflib, os
 import time, datetime, pytz, random
 import requests, http.client, socket
-from DataTreeGrab import *
+from datatree.datatreegrab import *
 from tvgrabpyAPI.tv_grab_channel import ProgramNode
 from tvgrabpyAPI.tv_grab_IO import DD_Convert
 from threading import Thread, RLock, Semaphore, Event
@@ -38,6 +38,7 @@ class dtError(dtErrorConstants):
         self.dtErrorTexts[self.dtShiftedDate] = 'Shifted Page Date!'
 
 dte = dtError()
+MODULE_NAME = 'datatree.datatreegrab'
 
 class URLtypes():
     ONECHANNEL = 1
@@ -520,9 +521,9 @@ class DataTree(DataTreeShell, Thread):
         self.show_result = source.show_parsing
         self.fle = source.test_output
         self.simplefilter("error", category = dtDataWarning, severity = 1)
-        sys.modules['DataTreeGrab']._warnings.filterwarnings('ignore', category = dtLinkWarning, \
+        sys.modules[MODULE_NAME]._warnings.filterwarnings('ignore', category = dtLinkWarning, \
             message = 'Regex "\\\d\*/\?\(\\\d\*\)\.\*" in: .*?', caller_id = caller_id)
-        sys.modules['DataTreeGrab']._warnings.filterwarnings('ignore', category = dtLinkWarning, \
+        sys.modules[MODULE_NAME]._warnings.filterwarnings('ignore', category = dtLinkWarning, \
             message = 'Regex "\(\\\d\*\)/\.\*" in: .*?', caller_id = caller_id)
 
     def run(self):

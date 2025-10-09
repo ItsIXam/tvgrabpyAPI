@@ -9,14 +9,14 @@ import codecs, locale, re, os, sys, io, shutil, difflib
 import traceback, smtplib, sqlite3, argparse, pickle
 import datetime, time, calendar, pytz
 from tvgrabpyAPI import tv_grab_channel, tv_grab_config
-import test_json_struct
+import datatree.test_json_struct as test_json_struct
 from threading import Thread, Lock, RLock
 from threading import enumerate as enumthreads
 from queue import Queue, Empty
 from copy import deepcopy, copy
 from email.mime.text import MIMEText
 from xml.sax import saxutils
-from DataTreeGrab import *
+from datatree.datatreegrab import *
 
 
 class Functions():
