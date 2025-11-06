@@ -8,9 +8,9 @@
 import re, sys, traceback, difflib, os
 import time, datetime, pytz, random
 import requests, http.client, socket
-from datatree.datatreegrab import *
-from tvgrabpyAPI.tv_grab_channel import ProgramNode
-from tvgrabpyAPI.tv_grab_IO import DD_Convert
+from custom_libs.datatree.datatreegrab import *
+from epgNL.tv_grab_channel import ProgramNode
+from epgNL.tv_grab_IO import DD_Convert
 from threading import Thread, RLock, Semaphore, Event
 from xml.sax import saxutils
 from queue import Queue, Empty
@@ -38,7 +38,7 @@ class dtError(dtErrorConstants):
         self.dtErrorTexts[self.dtShiftedDate] = 'Shifted Page Date!'
 
 dte = dtError()
-MODULE_NAME = 'datatree.datatreegrab'
+MODULE_NAME = 'custom_libs.datatree.datatreegrab'
 
 class URLtypes():
     ONECHANNEL = 1

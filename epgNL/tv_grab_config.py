@@ -108,32 +108,34 @@
 # from __future__ import print_function
 
 import os, re, sys, argparse, traceback, datetime, time, codecs
-from datatree.datatreegrab import version as dtversion
+from custom_libs.datatree.datatreegrab import version as dtversion
 
 if dtversion()[1:4] < (1,4,0):
     sys.stderr.write("tv_grab_py_API requires DataTreeGrab 1.4.0 or higher\n")
     sys.stderr.write('Goto "https://github.com/tvgrabbers/DataTree/releases/latest"\n')
     sys.exit(2)
 
-from datatree.datatreegrab import is_data_value, data_value
-from tvgrabpyAPI import tv_grab_IO, tv_grab_fetch, tv_grab_channel
+from custom_libs.datatree.datatreegrab import is_data_value, data_value
+from epgNL import tv_grab_IO, tv_grab_fetch, tv_grab_channel, __path__
 import pytz
+from pathlib import Path
 
 try:
     chr(42)
 except NameError:
     chr = chr    # Python 3
 
-api_name = 'tv_grab_py_API'
-api_major = 1
-api_minor = 0
-api_patch = 10
-api_patchdate = '20200428'
-api_alfa = False
-api_beta = False
+API_NAME = 'tv_grab_py_API'
+API_MAJOR = 1
+API_MINOR = 0
+API_PATCH = 10
+API_PATCHDATE = '20200428'
+API_ALPHA = False
+API_BETA = False
+PROJECT_ROOT_DIR = Path(__file__).parent.parent
 
 def version():
-    return (api_name, api_major, api_minor, api_patch, api_patchdate, api_beta, api_alfa)
+    return (API_NAME, API_MAJOR, API_MINOR, API_PATCH, API_PATCHDATE, API_BETA, API_ALPHA)
 
 def grabber_main(config):
     # We want to handle unexpected errors nicely. With a message to the log
@@ -209,18 +211,17 @@ def grabber_main(config):
 # end grabber_main()
 
 class Configure:
-
     def __init__(self, name="", datafile=""):
         log_array = []
         # Version info as returned by the version function
         self.errorstate = 0
-        self.api_name = api_name
-        self.api_major = api_major
-        self.api_minor = api_minor
-        self.api_patch = api_patch
-        self.api_patchdate = api_patchdate
-        self.api_alfa = api_alfa
-        self.api_beta = api_beta
+        self.api_name = API_NAME
+        self.api_major = API_MAJOR
+        self.api_minor = API_MINOR
+        self.api_patch = API_PATCH
+        self.api_patchdate = API_PATCHDATE
+        self.api_alfa = API_ALPHA
+        self.api_beta = API_BETA
         self.datafile = datafile
         self.country = 'The Netherlands'
         if name == "":
@@ -278,9 +279,8 @@ class Configure:
         self.cattranstype[0] = {}
         self.cattranstype[1] = {}
         self.cattranstype[2] = {}
-
-        from tvgrabpyAPI import __path__
         self.api_path = __path__[0]
+
         self.opt_dict['home_dir'] = ''
         self.opt_dict['etc_dir'] = '/etc/tvgrabpyAPI'
         self.opt_dict['var_dir'] = '/var/lib/tvgrabpyAPI'
@@ -294,24 +294,28 @@ class Configure:
         elif 'HOMEPATH' in os.environ:
             self.opt_dict['home_dir'] = os.environ['HOMEPATH']
 
-        if os.name == 'nt' and 'USERPROFILE' in os.environ:
-            self.opt_dict['home_dir'] = os.environ['USERPROFILE']
-        self.as_root = (self.opt_dict['home_dir'] == '/root')
-        self.opt_dict['xmltv_dir'] = '%s/.xmltv' % self.opt_dict['home_dir']
         if os.name == 'nt':
+            if 'USERPROFILE' in os.environ:
+                self.opt_dict['home_dir'] = os.environ['USERPROFILE']
+            
             self.source_dir = '%s/sources' % self.opt_dict['xmltv_dir']
             self.opt_dict['sources'] = self.source_dir
-        elif self.as_root:
+
+        
+        self.as_root = (self.opt_dict['home_dir'] == '/root')
+        self.opt_dict['xmltv_dir'] = f"{PROJECT_ROOT_DIR}/epgNL/data"
+
+        if self.as_root:
             self.opt_dict['xmltv_dir'] = self.opt_dict['etc_dir']
             self.opt_dict['sources'] = self.source_dir
         else:
-            self.opt_dict['sources'] = '%s/sources' % self.opt_dict['xmltv_dir']
+            self.opt_dict['sources'] = f"{self.opt_dict['xmltv_dir']}/sources"
 
-        self.opt_dict['config_file'] = '%s/%s.conf' % (self.opt_dict['xmltv_dir'], self.name)
-        self.opt_dict['log_file'] = '%s/%s.log' % (self.opt_dict['xmltv_dir'], self.name)
-        self.opt_dict['ttvdb_log_file'] = '%s/ttvdb.log' % (self.opt_dict['xmltv_dir'], )
-        self.opt_dict['settings_file'] = '%s/%s.set' % (self.opt_dict['xmltv_dir'], self.name)
-        self.opt_dict['cache_file'] = '%s/program_cache3' % self.opt_dict['xmltv_dir']
+        self.opt_dict['config_file'] = f"{self.opt_dict['xmltv_dir']}/{self.name}.conf"
+        self.opt_dict['log_file'] = f"{self.opt_dict['xmltv_dir']}/{self.name}.log"
+        self.opt_dict['ttvdb_log_file'] = f"{self.opt_dict['xmltv_dir']}/ttvdb.log"
+        self.opt_dict['settings_file'] = f"{self.opt_dict['xmltv_dir']}/{self.name}.set"
+        self.opt_dict['cache_file'] = f"{self.opt_dict['xmltv_dir']}/program_cache3"
         self.program_cache = None
         self.clean_cache = True
         self.clear_cache = False

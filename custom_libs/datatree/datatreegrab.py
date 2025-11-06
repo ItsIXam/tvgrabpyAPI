@@ -50,7 +50,7 @@ try:
 except ImportError:
     from html.entities import name2codepoint
 
-MODULE_NAME = 'datatree.datatreegrab'
+MODULE_NAME = 'custom_libs.datatree.datatreegrab'
 
 dt_name = 'DataTreeGrab'
 dt_major = 1
