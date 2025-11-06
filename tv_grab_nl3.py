@@ -105,7 +105,7 @@
 # from __future__ import print_function
 
 # Modules we need
-import sys, locale, tvgrabpyAPI
+import sys, locale, epgNL
 
 try:
     unichr(42)
@@ -117,19 +117,16 @@ if sys.version_info[:3] < (2,7,9):
     sys.stderr.write("tv_grab_py_API requires Pyton 2.7.9 or higher\n")
     sys.exit(2)
 
-if sys.version_info[:2] >= (3,0):
-    sys.stderr.write("tv_grab_py_API does not yet support Pyton 3 or higher.\nExpect errors while we proceed\n")
-
 locale.setlocale(locale.LC_ALL, '')
 
-if tvgrabpyAPI.version()[1:4] < (1,0,6):
+if epgNL.version()[1:4] < (1,0,6):
     sys.stderr.write("tv_grab_nl3_py requires tv_grab_py_API 1.0.1 or higher\n")
     sys.exit(2)
 
-class Configure(tvgrabpyAPI.Configure):
+class Configure(epgNL.Configure):
     def __init__(self):
         # We need these in __init__ to determin log names etc. If not set here we use defaults
-        tvgrabpyAPI.Configure.__init__(self, name = 'tv_grab_nl3_py', datafile = 'tv_grab_nl')
+        epgNL.Configure.__init__(self, name = 'tv_grab_nl3_py', datafile = 'tv_grab_nl')
         # Version info and description from the frontend as returned by the version function
         self.country = 'The Netherlands'
         self.description = 'Dutch/Flemish grabber combining multiple sources.'
@@ -151,6 +148,6 @@ class Configure(tvgrabpyAPI.Configure):
 # allow this to be a module
 if __name__ == '__main__':
     config = Configure()
-    x = tvgrabpyAPI.grabber_main(config)
+    x = epgNL.grabber_main(config)
     config.close()
     sys.exit(x)

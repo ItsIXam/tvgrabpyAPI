@@ -19,7 +19,7 @@
 # 512: Report on either selection (without errors)
 
 import sys
-from tvgrabpyAPI import tv_grab_IO
+from epgNL import tv_grab_IO
 
 testjson = tv_grab_IO.test_JSON()
 if testjson.struct_tree in (None, []):

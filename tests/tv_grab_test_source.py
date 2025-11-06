@@ -9,7 +9,7 @@ from __future__ import unicode_literals
 #~ import sys, locale, traceback, json
 #~ import time, datetime, pytz
 import sys, locale
-from tvgrabpyAPI import tv_grab_IO, version
+from epgNL import tv_grab_IO, version
 
 try:
     unichr(42)
