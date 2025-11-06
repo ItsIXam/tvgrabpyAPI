@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 """
@@ -104,30 +104,33 @@
 """
 
 # Python 3 compatibility
-from __future__ import unicode_literals
+
 # from __future__ import print_function
 
 import os, re, sys, argparse, traceback, datetime, time, codecs
-from DataTreeGrab import version as dtversion
+from datatree.datatreegrab import version as dtversion
+
 if dtversion()[1:4] < (1,4,0):
     sys.stderr.write("tv_grab_py_API requires DataTreeGrab 1.4.0 or higher\n")
     sys.stderr.write('Goto "https://github.com/tvgrabbers/DataTree/releases/latest"\n')
     sys.exit(2)
 
-from DataTreeGrab import is_data_value, data_value
-import tv_grab_IO, tv_grab_fetch, tv_grab_channel, pytz
-try:
-    unichr(42)
-except NameError:
-    unichr = chr    # Python 3
+from datatree.datatreegrab import is_data_value, data_value
+from tvgrabpyAPI import tv_grab_IO, tv_grab_fetch, tv_grab_channel
+import pytz
 
-api_name = u'tv_grab_py_API'
+try:
+    chr(42)
+except NameError:
+    chr = chr    # Python 3
+
+api_name = 'tv_grab_py_API'
 api_major = 1
 api_minor = 0
 api_patch = 10
-api_patchdate = u'20200209'
+api_patchdate = '20200428'
 api_alfa = False
-api_beta = True
+api_beta = False
 
 def version():
     return (api_name, api_major, api_minor, api_patch, api_patchdate, api_beta, api_alfa)
@@ -144,17 +147,18 @@ def grabber_main(config):
             return(x)
 
         start_time = config.in_output_tz('now')
+
         config.log(config.text('config', 5, (start_time.strftime('%Y-%m-%d %H:%M'), ), 'other'),4, 1)
 
         # Start the seperate fetching threads
-        for source in config.channelsource.values():
+        for source in list(config.channelsource.values()):
             x = source.start()
             if x != None:
                 return(x)
 
         # Start the Channel threads, but wait a second so the sources have properly initialized any child channel
         while True:
-            for source in config.channelsource.values():
+            for source in list(config.channelsource.values()):
                 if not source.has_started:
                     break
 
@@ -164,7 +168,7 @@ def grabber_main(config):
         time.sleep(1)
         counter = 0
         channel_threads = []
-        for channel in config.channels.values():
+        for channel in list(config.channels.values()):
             if not (channel.active or channel.is_child):
                 continue
 
@@ -222,7 +226,7 @@ class Configure:
         if name == "":
             # No name was set in the frontend
             self.name ='tv_grab_configure.py'
-            log_array.append(u'No valid Frontend Name set! Setting it to "%s"\n' % (self.name, ))
+            log_array.append('No valid Frontend Name set! Setting it to "%s"\n' % (self.name, ))
 
         else:
             self.name = name
@@ -278,8 +282,8 @@ class Configure:
         from tvgrabpyAPI import __path__
         self.api_path = __path__[0]
         self.opt_dict['home_dir'] = ''
-        self.opt_dict['etc_dir'] = u'/etc/tvgrabpyAPI'
-        self.opt_dict['var_dir'] = u'/var/lib/tvgrabpyAPI'
+        self.opt_dict['etc_dir'] = '/etc/tvgrabpyAPI'
+        self.opt_dict['var_dir'] = '/var/lib/tvgrabpyAPI'
         self.api_source_url = 'https://raw.githubusercontent.com/tvgrabbers/sourcematching/master'
         self.api_update_url = 'https://github.com/tvgrabbers/tvgrabpyAPI/releases/latest'
         self.source_url = self.api_source_url
@@ -293,21 +297,21 @@ class Configure:
         if os.name == 'nt' and 'USERPROFILE' in os.environ:
             self.opt_dict['home_dir'] = os.environ['USERPROFILE']
         self.as_root = (self.opt_dict['home_dir'] == '/root')
-        self.opt_dict['xmltv_dir'] = u'%s/.xmltv' % self.opt_dict['home_dir']
+        self.opt_dict['xmltv_dir'] = '%s/.xmltv' % self.opt_dict['home_dir']
         if os.name == 'nt':
-            self.source_dir = u'%s/sources' % self.opt_dict['xmltv_dir']
+            self.source_dir = '%s/sources' % self.opt_dict['xmltv_dir']
             self.opt_dict['sources'] = self.source_dir
         elif self.as_root:
             self.opt_dict['xmltv_dir'] = self.opt_dict['etc_dir']
             self.opt_dict['sources'] = self.source_dir
         else:
-            self.opt_dict['sources'] = u'%s/sources' % self.opt_dict['xmltv_dir']
+            self.opt_dict['sources'] = '%s/sources' % self.opt_dict['xmltv_dir']
 
-        self.opt_dict['config_file'] = u'%s/%s.conf' % (self.opt_dict['xmltv_dir'], self.name)
-        self.opt_dict['log_file'] = u'%s/%s.log' % (self.opt_dict['xmltv_dir'], self.name)
-        self.opt_dict['ttvdb_log_file'] = u'%s/ttvdb.log' % (self.opt_dict['xmltv_dir'], )
-        self.opt_dict['settings_file'] = u'%s/%s.set' % (self.opt_dict['xmltv_dir'], self.name)
-        self.opt_dict['cache_file'] = u'%s/program_cache3' % self.opt_dict['xmltv_dir']
+        self.opt_dict['config_file'] = '%s/%s.conf' % (self.opt_dict['xmltv_dir'], self.name)
+        self.opt_dict['log_file'] = '%s/%s.log' % (self.opt_dict['xmltv_dir'], self.name)
+        self.opt_dict['ttvdb_log_file'] = '%s/ttvdb.log' % (self.opt_dict['xmltv_dir'], )
+        self.opt_dict['settings_file'] = '%s/%s.set' % (self.opt_dict['xmltv_dir'], self.name)
+        self.opt_dict['cache_file'] = '%s/program_cache3' % self.opt_dict['xmltv_dir']
         self.program_cache = None
         self.clean_cache = True
         self.clear_cache = False
@@ -385,19 +389,19 @@ class Configure:
         self.description = self.text('config', 0, type='other')
         self.configversion = None
         self.APIdata_loaded = False
-        self.__CONFIG_SECTIONS__ = { 1: u'Configuration',
-                                                            2: u'tvgids.nl Channels',
-                                                            3: u'Channels'}
+        self.__CONFIG_SECTIONS__ = { 1: 'Configuration',
+                                                            2: 'tvgids.nl Channels',
+                                                            3: 'Channels'}
 
 
-        self.__DEFAULT_SECTIONS__ = {1: u'genre conversion table',
-                                                             2: u'no title split list',
-                                                             3: u'remove groupname list',
-                                                             4: u'rename title list',
-                                                             5: u'genres to get detail pages for',
-                                                             6: u'genres to treat as series',
-                                                             7: u'genres to treat as movies',
-                                                             8: u'genres to treat as sports'}
+        self.__DEFAULT_SECTIONS__ = {1: 'genre conversion table',
+                                                             2: 'no title split list',
+                                                             3: 'remove groupname list',
+                                                             4: 'rename title list',
+                                                             5: 'genres to get detail pages for',
+                                                             6: 'genres to treat as series',
+                                                             7: 'genres to treat as movies',
+                                                             8: 'genres to treat as sports'}
 
     # end Init()
 
@@ -407,36 +411,36 @@ class Configure:
         """
         if API:
             if as_string and self.api_alfa:
-                return u'%s (%s: %s.%s.%s-p%s-alpha)' % (self.api_name, self.text('config', 6, type = 'other'), self.api_major, self.api_minor, '{:0>2}'.format(self.api_patch), self.api_patchdate)
+                return '%s (%s: %s.%s.%s-p%s-alpha)' % (self.api_name, self.text('config', 6, type = 'other'), self.api_major, self.api_minor, '{:0>2}'.format(self.api_patch), self.api_patchdate)
 
             if as_string and self.api_beta:
-                return u'%s (%s: %s.%s.%s-p%s-beta)' % (self.api_name, self.text('config', 6, type = 'other'), self.api_major, self.api_minor, '{:0>2}'.format(self.api_patch), self.api_patchdate)
+                return '%s (%s: %s.%s.%s-p%s-beta)' % (self.api_name, self.text('config', 6, type = 'other'), self.api_major, self.api_minor, '{:0>2}'.format(self.api_patch), self.api_patchdate)
 
             if as_string and not self.api_beta:
-                return u'%s (%s: %s.%s.%s-p%s)' % (self.api_name, self.text('config', 6, type = 'other'), self.api_major, self.api_minor, '{:0>2}'.format(self.api_patch), self.api_patchdate)
+                return '%s (%s: %s.%s.%s-p%s)' % (self.api_name, self.text('config', 6, type = 'other'), self.api_major, self.api_minor, '{:0>2}'.format(self.api_patch), self.api_patchdate)
 
             else:
                 return (self.api_name, self.api_major, self.api_minor, self.api_patch, self.api_patchdate, self.api_beta, self.api_alfa)
 
         elif API == None:
             if self.api_alfa:
-                return u'%s (API-%s: %s.%s.%s-p%s-alpha)' % (self.name, self.text('config', 6, type = 'other'), self.api_major, self.api_minor, '{:0>2}'.format(self.api_patch), self.api_patchdate)
+                return '%s (API-%s: %s.%s.%s-p%s-alpha)' % (self.name, self.text('config', 6, type = 'other'), self.api_major, self.api_minor, '{:0>2}'.format(self.api_patch), self.api_patchdate)
 
             if self.api_beta:
-                return u'%s (API-%s: %s.%s.%s-p%s-beta)' % (self.name, self.text('config', 6, type = 'other'), self.api_major, self.api_minor, '{:0>2}'.format(self.api_patch), self.api_patchdate)
+                return '%s (API-%s: %s.%s.%s-p%s-beta)' % (self.name, self.text('config', 6, type = 'other'), self.api_major, self.api_minor, '{:0>2}'.format(self.api_patch), self.api_patchdate)
 
             if not self.api_patchdate:
-                return u'%s (API-%s: %s.%s.%s-p%s)' % (self.name, self.text('config', 6, type = 'other'), self.api_major, self.api_minor, '{:0>2}'.format(self.api_patch), self.patchdate)
+                return '%s (API-%s: %s.%s.%s-p%s)' % (self.name, self.text('config', 6, type = 'other'), self.api_major, self.api_minor, '{:0>2}'.format(self.api_patch), self.patchdate)
 
         else:
             if as_string and self.alfa:
-                return u'%s (%s: %s.%s.%s-p%s-alpha)' % (self.name, self.text('config', 6, type = 'other'), self.major, self.minor, '{:0>2}'.format(self.patch), self.patchdate)
+                return '%s (%s: %s.%s.%s-p%s-alpha)' % (self.name, self.text('config', 6, type = 'other'), self.major, self.minor, '{:0>2}'.format(self.patch), self.patchdate)
 
             if as_string and self.beta:
-                return u'%s (%s: %s.%s.%s-p%s-beta)' % (self.name, self.text('config', 6, type = 'other'), self.major, self.minor, '{:0>2}'.format(self.patch), self.patchdate)
+                return '%s (%s: %s.%s.%s-p%s-beta)' % (self.name, self.text('config', 6, type = 'other'), self.major, self.minor, '{:0>2}'.format(self.patch), self.patchdate)
 
             if as_string and not self.beta:
-                return u'%s (%s: %s.%s.%s-p%s)' % (self.name, self.text('config', 6, type = 'other'), self.major, self.minor, '{:0>2}'.format(self.patch), self.patchdate)
+                return '%s (%s: %s.%s.%s-p%s)' % (self.name, self.text('config', 6, type = 'other'), self.major, self.minor, '{:0>2}'.format(self.patch), self.patchdate)
 
             else:
                 return (self.name, self.major, self.minor, self.patch, self.patchdate, self.beta, self.alfa)
@@ -446,12 +450,12 @@ class Configure:
     def log(self, message, log_level = 1, log_target = 3):
         # If logging not (jet) available, make sure important messages go to the screen
         if (self.logging.log_output == None) and (log_level < 2) and (log_target & 1):
-            if isinstance(message, (str, unicode)):
-                sys.stderr.write(message.encode(self.logging.local_encoding, 'replace'))
+            if isinstance(message, str):
+                sys.stderr.write(message)
 
             elif isinstance(message, (list ,tuple)):
                 for m in message:
-                    sys.stderr.write(m.encode(self.logging.local_encoding, 'replace'))
+                    sys.stderr.write(m)
 
             if log_target & 2:
                 self.logging.log_queue.put([message, log_level, 2])
@@ -466,7 +470,7 @@ class Configure:
             return
 
         name = 'tv_grab_text'
-        fle_name = u'%s/texts/%s.%s' % (self.api_path, name, lang)
+        fle_name = '%s/texts/%s.%s' % (self.api_path, name, lang)
         try:
             fle_dict = self.IO_func.read_pickle(fle_name)
             if fle_dict != None:
@@ -476,15 +480,15 @@ class Configure:
                     self.texts = fle_dict['texts']
 
                 else:
-                    for module in fle_dict['texts'].keys():
+                    for module in list(fle_dict['texts'].keys()):
                         if not is_data_value([module], self.texts, dict):
                             self.texts[module] = {}
 
-                        for type in fle_dict['texts'][module].keys():
+                        for type in list(fle_dict['texts'][module].keys()):
                             if not is_data_value([module, type], self.texts, dict):
                                 self.texts[module][type] = {}
 
-                            for tno in fle_dict['texts'][module][type].keys():
+                            for tno in list(fle_dict['texts'][module][type].keys()):
                                 if is_data_value(['texts', module, type, tno], fle_dict, str, True):
                                     self.texts[module][type][tno] = data_value(['texts', module, type, tno], fle_dict, str)
 
@@ -508,13 +512,13 @@ class Configure:
                 return txt
 
             elif return_empty_on_missing:
-                return u''
+                return ''
 
             else:
                 return self.texts['config']['error'][0] % (module, type, tno)
 
         except:
-            return u'Error creating message text! (%s, %s: %s)\n' % (module, type, tno)
+            return 'Error creating message text! (%s, %s: %s)\n' % (module, type, tno)
     # end text()
 
     def in_tz(self, cdate, tz = None):
@@ -584,7 +588,7 @@ class Configure:
                 self.prime_source_order.append(s)
 
         def init_source(sid, **v):
-            if not 'json file' in v.keys():
+            if not 'json file' in list(v.keys()):
                 disable_source(sid)
                 return
 
@@ -616,11 +620,11 @@ class Configure:
             if ctype == None:
                 return self.channelsource[sid]
 
-            if not ctype in self.cattranstype.keys():
+            if not ctype in list(self.cattranstype.keys()):
                 self.cattranstype[ctype] = {}
 
             if is_data_value("cattransid", v, int):
-                self.__DEFAULT_SECTIONS__[10 + v["cattransid"]] = u'%s genres' % (self.channelsource[sid].source)
+                self.__DEFAULT_SECTIONS__[10 + v["cattransid"]] = '%s genres' % (self.channelsource[sid].source)
                 self.cattranstype[ctype][10 + v["cattransid"]] = sid
                 if ctype == 1:
                     self.channelsource[sid].new_cattrans = {}
@@ -630,7 +634,7 @@ class Configure:
             return self.channelsource[sid]
 
         if sid == None:
-            for s, v in self.sources.items():
+            for s, v in list(self.sources.items()):
                 init_source(s, **v)
 
         elif sid in self.available_sources:
@@ -797,20 +801,20 @@ class Configure:
 
     def validate_option(self, option, channel = None, value = None, stdoutput = True, check_default = False):
         """Validate an option"""
-        if not (channel == None or channel in self.channels.values()):
+        if not (channel == None or channel in list(self.channels.values())):
             return
 
         if option == 'version':
-            print("%s: %s" % (self.country, self.version(True)))
-            print("The Netherlands: %s" % self.version(True, True))
+            print(("%s: %s" % (self.country, self.version(True))))
+            print(("The Netherlands: %s" % self.version(True, True)))
             if dtversion()[6]:
-                print("The Netherlands: %s   (Version: %s.%s.%s -p%s-alfa)" % dtversion()[:5])
+                print(("The Netherlands: %s   (Version: %s.%s.%s -p%s-alfa)" % dtversion()[:5]))
 
             elif dtversion()[5]:
-                print("The Netherlands: %s   (Version: %s.%s.%s -p%s-beta)" % dtversion()[:5])
+                print(("The Netherlands: %s   (Version: %s.%s.%s -p%s-beta)" % dtversion()[:5]))
 
             else:
-                print("The Netherlands: %s   (Version: %s.%s.%s -p%s)" % dtversion()[:5])
+                print(("The Netherlands: %s   (Version: %s.%s.%s -p%s)" % dtversion()[:5]))
 
             return(0)
 
@@ -832,7 +836,7 @@ class Configure:
                 return(dtext)
 
         elif option == 'description_long':
-            print("The Netherlands: %s" % self.version(True))
+            print(("The Netherlands: %s" % self.version(True)))
             print(__doc__)
             return(0)
 
@@ -855,38 +859,38 @@ class Configure:
 
         elif option == 'show_sources':
             if self.test_modus:
-                print(self.text('config', 1, type='other'))
-                for k, s in self.sources.items():
-                    print(' %s: %s' % (str(k).rjust(2), s["json file"][7:]))
+                print((self.text('config', 1, type='other')))
+                for k, s in list(self.sources.items()):
+                    print((' %s: %s' % (str(k).rjust(2), s["json file"][7:])))
 
             elif stdoutput:
-                print(self.text('config', 1, type='other'))
-                for k, s in self.channelsource.items():
-                    print(' %s: %s' % (str(k).rjust(2), s.source))
+                print((self.text('config', 1, type='other')))
+                for k, s in list(self.channelsource.items()):
+                    print((' %s: %s' % (str(k).rjust(2), s.source)))
 
             else:
                 tdict = {}
-                for k, s in self.channelsource.items():
+                for k, s in list(self.channelsource.items()):
                     tdict[k] = s.source
 
                 return tdict
 
         elif option == 'show_detail_sources':
             if self.test_modus:
-                print(self.text('config', 2, type='other'))
-                for k, s in self.sources.items():
+                print((self.text('config', 2, type='other')))
+                for k, s in list(self.sources.items()):
                     if k in self.detail_sources:
-                        print(' %s: %s' % (str(k).rjust(2), s["json file"][7:]))
+                        print((' %s: %s' % (str(k).rjust(2), s["json file"][7:])))
 
             elif stdoutput:
-                print(self.text('config', 2, type='other'))
-                for k, s in self.channelsource.items():
+                print((self.text('config', 2, type='other')))
+                for k, s in list(self.channelsource.items()):
                     if k in self.detail_sources:
-                        print(' %s: %s' % (str(k).rjust(2), s.source))
+                        print((' %s: %s' % (str(k).rjust(2), s.source)))
 
             else:
                 tdict = {}
-                for k, s in self.channelsource.items():
+                for k, s in list(self.channelsource.items()):
                     if s.detail_processor:
                         tdict[k] = s.source
 
@@ -894,15 +898,15 @@ class Configure:
         elif option == 'show_logo_sources':
             self.get_json_datafiles(self.datafile)
             if stdoutput:
-                print(self.text('config', 3, type='other'))
-                for k, v in self.xml_output.logo_provider.items():
-                    print(' %s: %s' % (str(k).rjust(3), v))
+                print((self.text('config', 3, type='other')))
+                for k, v in list(self.xml_output.logo_provider.items()):
+                    print((' %s: %s' % (str(k).rjust(3), v)))
 
-                print(self.text('config', 4, type='other'))
+                print((self.text('config', 4, type='other')))
 
             else:
                 tdict = {}
-                for k, v in self.xml_output.logo_provider.items():
+                for k, v in list(self.xml_output.logo_provider.items()):
                     tdict[k] = v
 
                     tdict[99] = 'free-form'
@@ -918,7 +922,7 @@ class Configure:
                 return(-2)
 
             self.opt_dict['ttvdb_lookup_level'] = self.max_ttv_level
-            series_title = unicode(self.args.ttvdb_title[0], 'utf-8')
+            series_title = str(self.args.ttvdb_title[0], 'utf-8')
             lang = self.xml_language
             tid = 0
             if len(self.args.ttvdb_title) >1:
@@ -927,7 +931,7 @@ class Configure:
                         tid = int(x)
 
                     except:
-                        lang = unicode(x, 'utf-8')[:2]
+                        lang = str(x, 'utf-8')[:2]
                         if not lang in self.ttvdb.lang_list:
                             self.log(self.text('ttvdb', 3, (lang,)))
                             lang = 'en'
@@ -957,16 +961,16 @@ class Configure:
                     channel.opt_dict['disable_detail_source'].append(value)
 
         elif option == 'channel_settings':
-            for chanid, chanlist in self.combined_channels.items():
-                if chanid in self.channels.keys() and self.channels[chanid].active:
+            for chanid, chanlist in list(self.combined_channels.items()):
+                if chanid in list(self.channels.keys()) and self.channels[chanid].active:
                     for child in chanlist:
                         childid = child['chanid']
-                        if childid in self.virtual_sub_channels.keys():
-                            if not childid in self.channels.keys():
+                        if childid in list(self.virtual_sub_channels.keys()):
+                            if not childid in list(self.channels.keys()):
                                 # We start a channel thread
-                                self.channels[childid] = tv_grab_channel.Channel_Config(self, childid, unicode(childid), -1)
+                                self.channels[childid] = tv_grab_channel.Channel_Config(self, childid, str(childid), -1)
 
-                            for s, channelid in self.virtual_sub_channels[childid]['channelids'].items():
+                            for s, channelid in list(self.virtual_sub_channels[childid]['channelids'].items()):
                                 self.channels[childid].channelid[s] = channelid
 
                             self.process_channel_config(childid)
@@ -981,7 +985,7 @@ class Configure:
                             else:
                                 self.channels[childid].virtual_start = self.fetch_func.merge_date_time(start_date - 1, self.virtual_sub_channels[childid]['start'], self.combined_channels_tz)
 
-            for channel in self.channels.values():
+            for channel in list(self.channels.values()):
                 channel.validate_settings()
 
         elif option == 'prime_source':
@@ -990,7 +994,7 @@ class Configure:
 
             # First get the default
             def validate_sourceid(sid, no_genric_matching = False):
-                if not sid in self.channelsource.keys():
+                if not sid in list(self.channelsource.keys()):
                     return False
 
                 channelid = channel.get_channelid(sid)
@@ -1035,7 +1039,7 @@ class Configure:
                 custom_value = value
 
             json_value = None
-            if channel.chanid in self.prime_source.keys() and \
+            if channel.chanid in list(self.prime_source.keys()) and \
                 validate_sourceid(self.prime_source[channel.chanid]):
                 # Use an override in sourcematching.json
                 json_value = self.prime_source[channel.chanid]
@@ -1072,7 +1076,7 @@ class Configure:
             if value == None:
                 value = channel.opt_dict['prefered_description']
 
-            if value in self.channelsource.keys() and \
+            if value in list(self.channelsource.keys()) and \
                 not (value in self.opt_dict['disable_source'] or value in channel.opt_dict['disable_source']):
                     channel.opt_dict['prefered_description'] = value
 
@@ -1156,7 +1160,7 @@ class Configure:
             self.log(self.text('config', 18, (self.opt_dict['config_file'], )))
             # get config if available Overrule if set by commandline
             if not self.read_config() and (self.test_modus or not self.configure):
-                self.opt_dict['config_file'] = u'%s/%s.conf' % (self.opt_dict['etc_dir'], self.name)
+                self.opt_dict['config_file'] = '%s/%s.conf' % (self.opt_dict['etc_dir'], self.name)
                 self.log([self.text('config', 19, (self.opt_dict['config_file'], ))])
                 if not self.read_config():
                     if self.test_modus:
@@ -1254,7 +1258,7 @@ class Configure:
                     if self.opt_dict['slowdays'] < self.opt_dict['days']:
                         self.opt_dict['fast']  = False
 
-            elif 'slowdays' in channel.opt_dict.keys():
+            elif 'slowdays' in list(channel.opt_dict.keys()):
                 if channel.get_opt('slowdays') != None:
                     channel.opt_dict['slowdays'] = min(self.opt_dict['days'], channel.get_opt('slowdays'))
                     # slowdays implies fast == False
@@ -1297,8 +1301,7 @@ class Configure:
         index = 0
         sarg = []
         for w in sys.argv:
-            sarg.append(unicode(w, 'utf-8'))
-
+            sarg.append(w)
         if '-l' in sarg:
             index = sarg.index('-l') + 1
 
@@ -1311,7 +1314,7 @@ class Configure:
 
         def check_lang(lang):
             name = 'tv_grab_text'
-            fle_name = u'%s/texts/%s.%s' % (self.api_path, name, lang)
+            fle_name = '%s/texts/%s.%s' % (self.api_path, name, lang)
             try:
                 if os.path.isfile(fle_name):
                     return lang
@@ -1322,8 +1325,8 @@ class Configure:
             except:
                 raise argparse.ArgumentTypeError('"%s" is not a supported language' % lang)
 
-        description = u"%s: %s\n" % (self.country, self.version(True)) + \
-                        u"The Netherlands: %s\n" % self.version(True, True) + \
+        description = "%s: %s\n" % (self.country, self.version(True)) + \
+                        "The Netherlands: %s\n" % self.version(True, True) + \
                         self.text('config', 1, type = 'help') + self.text('config', 2, type = 'help')
 
         parser = argparse.ArgumentParser(description = description, formatter_class=argparse.RawTextHelpFormatter, add_help=False)
@@ -1431,13 +1434,13 @@ class Configure:
         parser.add_argument('-s', '--slow', action = 'store_false', default = None, dest = 'fast',
                         help =self.text('config', 34, type='help'))
 
-        parser.add_argument('-o', '--offset', type = int, default = None, dest = 'offset', choices=range(0, 14),
+        parser.add_argument('-o', '--offset', type = int, default = None, dest = 'offset', choices=list(range(0, 14)),
                         metavar = '<days>', help =self.text('config', 35, type='help'))
 
-        parser.add_argument('-g', '--days', type = int, default = None, dest = 'days', choices=range(0, 14),
+        parser.add_argument('-g', '--days', type = int, default = None, dest = 'days', choices=list(range(0, 14)),
                         metavar = '<days>', help =self.text('config', 36, type='help'))
 
-        parser.add_argument('-G', '--slowdays', type = int, default = None, dest = 'slowdays', choices=range(0, 14),
+        parser.add_argument('-G', '--slowdays', type = int, default = None, dest = 'slowdays', choices=list(range(0, 14)),
                         metavar = '<days>', help =self.text('config', 38, type='help'))
 
         parser.add_argument('--logos', action = 'store_true', default = None, dest = 'logos',
@@ -1517,9 +1520,9 @@ class Configure:
                 # Look for section headers
                 config_title = re.search('\[(.*?)\]', line)
                 if config_title != None:
-                    if (config_title.group(1) in self.__CONFIG_SECTIONS__.values()):
+                    if (config_title.group(1) in list(self.__CONFIG_SECTIONS__.values())):
                         section = config_title.group(1)
-                        for i, v in self.__CONFIG_SECTIONS__.items():
+                        for i, v in list(self.__CONFIG_SECTIONS__.items()):
                             if v == config_title.group(1):
                                 type = i
                                 continue
@@ -1530,7 +1533,7 @@ class Configure:
                     elif config_title.group(1)[0:7].lower() == 'channel':
                         section = config_title.group(1)[7:].strip().lower()
                         type = 9
-                        if not section in self.config_dict[9].keys():
+                        if not section in list(self.config_dict[9].keys()):
                             self.config_dict[9][section] = []
                         continue
 
@@ -1642,11 +1645,11 @@ class Configure:
             for line in self.config_dict[2]:
                 try:
                     channel = line.split(None, 1) # split on first whitespace
-                    chanid = unicode(channel[0]).strip()
-                    channame = unicode(channel[1]).strip()
+                    chanid = str(channel[0]).strip()
+                    channame = str(channel[1]).strip()
                     self.channels[chanid] = tv_grab_channel.Channel_Config(self, chanid, channame)
                     self.channels[chanid].active = True
-                    if chanid in channel_names.keys():
+                    if chanid in list(channel_names.keys()):
                         channel_names[chanid].append(channame.lower())
 
                     else:
@@ -1693,22 +1696,22 @@ class Configure:
 
                         for index in range(4):
                             if channel[index + 2].strip() != '':
-                                old_chanid = unicode(channel[index + 2]).strip()
+                                old_chanid = str(channel[index + 2]).strip()
                                 break
 
                         else:
                             # No sources!
                             continue
 
-                        chanid = u'%s-%s' % (index, old_chanid)
+                        chanid = '%s-%s' % (index, old_chanid)
                         old_chanids[old_chanid] = chanid
-                        self.channels[chanid] = tv_grab_channel.Channel_Config(self, chanid, unicode(channel[0]).strip(), int(channel[1]))
+                        self.channels[chanid] = tv_grab_channel.Channel_Config(self, chanid, str(channel[0]).strip(), int(channel[1]))
                         for index in range(4):
                             if index == 0:
-                                self.channels[chanid].channelid[3] = unicode(channel[index + 2]).strip()
+                                self.channels[chanid].channelid[3] = str(channel[index + 2]).strip()
 
                             else:
-                                self.channels[chanid].channelid[index] = unicode(channel[index + 2]).strip()
+                                self.channels[chanid].channelid[index] = str(channel[index + 2]).strip()
 
                     else:
                         # And the new version 2.2 one
@@ -1720,10 +1723,10 @@ class Configure:
                             # No sources!
                             continue
 
-                        chanid = unicode(channel[2])
-                        chanid = unicode(channel[2])
-                        channame = unicode(channel[0]).strip()
-                        if chanid in channel_names.keys():
+                        chanid = str(channel[2])
+                        chanid = str(channel[2])
+                        channame = str(channel[0]).strip()
+                        if chanid in list(channel_names.keys()):
                             channel_names[chanid].append(channame.lower())
 
                         else:
@@ -1733,14 +1736,14 @@ class Configure:
                         for index in range(len(channel) - 5):
                             if self.configversion < 3.0 and index in (0, 3):
                                 if index == 0:
-                                    self.channels[chanid].channelid[3] = unicode(channel[index + 3]).strip()
+                                    self.channels[chanid].channelid[3] = str(channel[index + 3]).strip()
 
                             else:
-                                self.channels[chanid].channelid[index] = unicode(channel[index + 3]).strip()
+                                self.channels[chanid].channelid[index] = str(channel[index + 3]).strip()
 
                     # The icon defenition
                     self.channels[chanid].icon_source = int(channel[-2])
-                    self.channels[chanid].icon = unicode(channel[-1]).strip()
+                    self.channels[chanid].icon = str(channel[-1]).strip()
                     # Set active if not remarked out
                     self.channels[chanid].active = active
                     if active:
@@ -1751,22 +1754,22 @@ class Configure:
 
             # Read the channel specific configuration
             if self.configversion == 2.1 or test_as_21:
-                for k, v in old_chanids.items():
+                for k, v in list(old_chanids.items()):
                     self.process_channel_config(v, [k])
 
             else:
-                for chanid in self.channels.keys():
-                    if chanid in channel_names.keys():
+                for chanid in list(self.channels.keys()):
+                    if chanid in list(channel_names.keys()):
                         self.process_channel_config(chanid, channel_names[chanid])
 
                     else:
                         self.process_channel_config(chanid)
 
         # an extra option for gathering extra info to better the code
-        if 'write_info_files' in self.opt_dict.keys():
+        if 'write_info_files' in list(self.opt_dict.keys()):
             self.write_info_files = self.opt_dict['write_info_files']
 
-        if 'output_tz' in self.opt_dict.keys():
+        if 'output_tz' in list(self.opt_dict.keys()):
             try:
                 self.output_tz = pytz.timezone(self.opt_dict['output_tz'])
 
@@ -1778,12 +1781,12 @@ class Configure:
     # end read_config()
 
     def process_channel_config(self, chanid, channames = None):
-        if chanid in self.config_dict[9].keys():
+        if chanid in list(self.config_dict[9].keys()):
             chan_conf = self.config_dict[9][chanid]
 
         elif channames != None:
             for name in channames:
-                if name in self.config_dict[9].keys():
+                if name in list(self.config_dict[9].keys()):
                     chan_conf = self.config_dict[9][name]
                     break
 
@@ -1889,18 +1892,18 @@ class Configure:
 
                 # Look for section headers
                 config_title = re.search('\[(.*?)\]', line)
-                if config_title != None and (config_title.group(1) in self.__DEFAULT_SECTIONS__.values()):
-                    for i, v in self.__DEFAULT_SECTIONS__.items():
+                if config_title != None and (config_title.group(1) in list(self.__DEFAULT_SECTIONS__.values())):
+                    for i, v in list(self.__DEFAULT_SECTIONS__.items()):
                         if v == config_title.group(1):
                             type = i
-                            if type in self.cattranstype[1].keys():
+                            if type in list(self.cattranstype[1].keys()):
                                 source = self.cattranstype[1][type]
-                                if not source in self.channelsource.keys():
+                                if not source in list(self.channelsource.keys()):
                                     type = 0
 
-                            elif type in self.cattranstype[2].keys():
+                            elif type in list(self.cattranstype[2].keys()):
                                 source = self.cattranstype[2][type]
-                                if not source in self.channelsource.keys():
+                                if not source in list(self.channelsource.keys()):
                                     type = 0
 
                             continue
@@ -1977,7 +1980,7 @@ class Configure:
                     if not line in self.sports_genres:
                         self.sports_genres.append(line)
 
-                elif type in self.cattranstype[1].keys():
+                elif type in list(self.cattranstype[1].keys()):
                     # split of the translation (if present) or supply an empty one
                     a = line.split('=',1)
                     gg = a[0].split(':',1)
@@ -1990,7 +1993,7 @@ class Configure:
                     if len(tg) == 1:
                         tg.append('')
 
-                    if not gg[0].lower().strip() in self.channelsource[source].source_data['cattrans'].keys():
+                    if not gg[0].lower().strip() in list(self.channelsource[source].source_data['cattrans'].keys()):
                         self.channelsource[source].source_data['cattrans'][gg[0].lower().strip()] = {}
 
                     if len(gg) < 2 or gg[1].strip() == '':
@@ -1999,7 +2002,7 @@ class Configure:
                     else:
                         self.channelsource[source].source_data['cattrans'][gg[0].lower().strip()][gg[1].lower().strip()] = tg
 
-                elif type in self.cattranstype[2].keys():
+                elif type in list(self.cattranstype[2].keys()):
                     # split of the translation (if present) or supply an empty one
                     a = re.split('=',line)
                     if len(a) == 1:
@@ -2034,7 +2037,7 @@ class Configure:
                     return ivar
 
                 lvar = {}
-                for k, v in ivar.items():
+                for k, v in list(ivar.items()):
                     try:
                         lvar[int(k)] = get_int_keys(v, level -1)
 
@@ -2134,7 +2137,7 @@ class Configure:
             self.user_agents = gitdata_value("user_agents", list, self.user_agents)
             self.user_agents2 = gitdata_value("user_agents2", list, self.user_agents)
             self.ttvdb_json = gitdata_dict("ttvdb")
-            for k in self.xml_output.logo_provider.keys():
+            for k in list(self.xml_output.logo_provider.keys()):
                 if k not in self.xml_output.logo_source_preference:
                     self.xml_output.logo_source_preference.append(k)
 
@@ -2187,7 +2190,7 @@ class Configure:
                 elif dv > self.opt_dict["data_version"]:
                     loglist = [self.text('config', 11, type = 'other')]
                     if is_gitdata_value("warning_message", dict):
-                        for v in githubdata["warning_message"].keys():
+                        for v in list(githubdata["warning_message"].keys()):
                             if int(v) > self.opt_dict["data_version"]:
                                 if is_gitdata_value(["warning_message", v], str):
                                     loglist.append(gitdata_value(["warning_message", v], str))
@@ -2207,13 +2210,13 @@ class Configure:
 
         source_url = gitdata_value("source-url", str)
         if source_url in (None, ''):
-            self.source_url = u'%s/sources' % self.source_url
+            self.source_url = '%s/sources' % self.source_url
 
         else:
             self.source_url = source_url
 
         self.sources = gitdata_dict("sources", 1)
-        self.available_sources = self.sources.keys()
+        self.available_sources = list(self.sources.keys())
         self.source_count = max(self.available_sources) + 1
         # Check on disabled sources
         active_sources = gitdata_value("active_sources", list)
@@ -2247,33 +2250,33 @@ class Configure:
         self.source_channels = gitdata_dict("source_channels", 1)
         self.prime_source = gitdata_dict("prime_source")
         # Remove any source that's not (jet) there
-        for c, s in self.prime_source.items():
+        for c, s in list(self.prime_source.items()):
             if s not in self.available_sources:
                 del self.prime_source[c]
 
         self.prime_source_groups = gitdata_dict("prime_source_groups", 1)
         # Remove any source that's not (jet) there
-        for g, s in self.prime_source_groups.items():
+        for g, s in list(self.prime_source_groups.items()):
             if s not in self.available_sources:
                 del self.prime_source_groups[g]
         logo_provider = gitdata_dict("logo_provider", 1)
         ttvdb_ids = gitdata_dict("ttvdb_ids")
-        for k, v in ttvdb_ids.items():
+        for k, v in list(ttvdb_ids.items()):
             self.ttvdb_ids[k] = v
 
         self.channel_rename = gitdata_dict("channel_rename")
         self.chan_groups = gitdata_dict("channel_groups", 1)
         self.group_order = gitdata_value("group_order", list)
         self.group_language = gitdata_dict("group language", 1)
-        for g in self.chan_groups.keys():
+        for g in list(self.chan_groups.keys()):
             if g not in self.group_order[:]:
                 self.group_order.append(g)
 
         for g in self.group_order:
-            if g not in self.chan_groups.keys():
+            if g not in list(self.chan_groups.keys()):
                 self.chan_groups[g] = 'Channel groep %s' % g
 
-            if g not in self.group_language.keys():
+            if g not in list(self.group_language.keys()):
                 self.group_language[g] = 'en'
 
         self.override_groups = gitdata_dict("override_groups", 1)
@@ -2282,7 +2285,7 @@ class Configure:
         self.channel_grouping = gitdata_dict("channel_grouping", 1)
         logo_names = gitdata_dict("logo_names")
         self.xml_output.logo_names = {}
-        for k, icon in logo_names.items():
+        for k, icon in list(logo_names.items()):
             if k in ("--description--", "--example--"):
                 continue
 
@@ -2301,7 +2304,7 @@ class Configure:
             if not item in logo_source_preference:
                 logo_source_preference.append(item)
 
-        for k, v in logo_provider.items():
+        for k, v in list(logo_provider.items()):
             if k > 100:
                 self.xml_output.logo_provider[k] = v
                 if not k in logo_source_preference:
@@ -2316,7 +2319,7 @@ class Configure:
 
         virtual_sub_channels = gitdata_dict("virtual-sub-channels")
         self.virtual_sub_channels = {}
-        for chanid, chandef in virtual_sub_channels.items():
+        for chanid, chandef in list(virtual_sub_channels.items()):
             self.virtual_sub_channels[chanid] = {}
             if 'start' in chandef:
                 if not get_time(chandef['start'], 0):
@@ -2338,15 +2341,15 @@ class Configure:
 
             self.virtual_sub_channels[chanid]['channelids'] = {}
             for s in self.source_order:
-                if unicode(s) in chandef.keys():
-                    self.virtual_sub_channels[chanid]['channelids'][s] = chandef[unicode(s)]
+                if str(s) in list(chandef.keys()):
+                    self.virtual_sub_channels[chanid]['channelids'][s] = chandef[str(s)]
 
                 else:
                     self.virtual_sub_channels[chanid]['channelids'][s] = ''
 
         combined_channels = gitdata_dict("combined_channels")
         self.combined_channels = {}
-        for chanid, chanlist in combined_channels.items():
+        for chanid, chanlist in list(combined_channels.items()):
             if chanid in ("--description--", "--example--"):
                 continue
 
@@ -2378,7 +2381,7 @@ class Configure:
 
                     clist.append(child)
 
-                elif isinstance(child, (str, unicode)):
+                elif isinstance(child, str):
                     clist.append({'chanid': child})
 
             if len(clist) > 0:
@@ -2389,11 +2392,11 @@ class Configure:
 
         logarray = []
         self.merge_into = gitdata_dict("merge_into")
-        for newch, oldch  in self.merge_into.items():
+        for newch, oldch  in list(self.merge_into.items()):
             if newch in ("--description--", "--example--"):
                 continue
 
-            newpresent = bool(newch in self.channels.keys())
+            newpresent = bool(newch in list(self.channels.keys()))
             newactive = newpresent and self.channels[newch].active
             oldpresent = bool(oldch['chanid'] in self.channels)
             oldactive = oldpresent and self.channels[oldch['chanid']].active
@@ -2432,7 +2435,7 @@ class Configure:
                     logarray.append(self.text('config', 15, (newch, ), type = 'mergeinfo'))
                     logarray.append('\n')
 
-                for source, id in oldch['sources'].items():
+                for source, id in list(oldch['sources'].items()):
                     # Link the ids from the old chanid to the new chanid
                     if oldch['chanid'] in self.source_channels[int(source)]:
                         self.source_channels[int(source)][newch] = self.source_channels[int(source)][oldch['chanid']]
@@ -2441,14 +2444,14 @@ class Configure:
             else:
                 if newpresent:
                     # Remove the old one from combined_channels if in there
-                    if newch in self.combined_channels.keys():
+                    if newch in list(self.combined_channels.keys()):
                         for c in self.combined_channels[newch]:
                             if c['chanid'] == oldch['chanid']:
                                 self.combined_channels[newch].remove(c)
                                 break
 
                     # And link the ids to the new chanid
-                    for source, id in oldch['sources'].items():
+                    for source, id in list(oldch['sources'].items()):
                         self.channels[newch].channelid[int(source)] = id
 
             self.log(logarray, 0)
@@ -2463,23 +2466,23 @@ class Configure:
         self.compat_text = gitdata_value("compat_text", str, self.compat_text)
         self.channelprogram_rename = gitdata_dict("channelprogram_rename")
         self.language_texts = gitdata_dict("language_texts")
-        if not 'and' in self.language_texts.keys():
+        if not 'and' in list(self.language_texts.keys()):
             self.language_texts['and'] = 'and'
 
-        if not 'and others' in self.language_texts.keys():
+        if not 'and others' in list(self.language_texts.keys()):
             self.language_texts['and others'] = 'and others'
 
         self.language_texts['and'] = ' %s ' % (self.language_texts['and'].strip().lower())
         roletrans = gitdata_dict("roletrans")
         self.roletrans = {}
         self.credit_keys = ['credits']
-        for k,v in roletrans.items():
+        for k,v in list(roletrans.items()):
             for item in v:
                 self.roletrans[item] = k
                 self.credit_keys.append(item)
 
         for item in self.key_values["credits"]:
-            if not item in self.roletrans.keys():
+            if not item in list(self.roletrans.keys()):
                 self.roletrans[item] = item
 
             if not item in self.credit_keys:
@@ -2496,9 +2499,9 @@ class Configure:
         self.sports_genres = gitdata_value("sports_genres", list)
         self.cattrans_unknown = gitdata_value("cattrans_unknown", str).lower().strip()
         cattrans = gitdata_dict("cattrans")
-        for k, v in cattrans.items():
+        for k, v in list(cattrans.items()):
             for item in v:
-                if isinstance(item, (str, unicode)):
+                if isinstance(item, str):
                     self.cattrans[(item.lower().strip(), '')] = k
 
                 if not isinstance(item,list) or len(item) == 0:
@@ -2517,7 +2520,7 @@ class Configure:
         Get a list of all available channels and store these
         in a file.
         """
-        for channel in self.channels.values():
+        for channel in list(self.channels.values()):
             # First we clear out all existing source_id's, because they can have become invalid!
             for index in range(self.source_count):
                 channel.channelid[index] = ''
@@ -2540,7 +2543,7 @@ class Configure:
         if not isinstance(self.channels, dict):
             self.channels = {}
 
-        for chanid, icon in self.xml_output.logo_names.items():
+        for chanid, icon in list(self.xml_output.logo_names.items()):
             db_icon.append({'sourceid': icon[0], 'chanid': str(chanid),'icon': icon[1]})
 
         # Get the sources
@@ -2559,20 +2562,20 @@ class Configure:
             reverse_channels[index] = {}
             # a list of all ids for the source
             source_keys[index] = []
-            for i, v in self.source_channels[index].items():
+            for i, v in list(self.source_channels[index].items()):
                 reverse_channels[index][v] = {}
-                reverse_channels[index][v]['chanid'] = unicode(i)
+                reverse_channels[index][v]['chanid'] = str(i)
                 i =i.split('-',1)
                 reverse_channels[index][v]['source'] = int(i[0])
-                reverse_channels[index][v]['channelid'] = unicode(i[1])
+                reverse_channels[index][v]['channelid'] = str(i[1])
 
-            for channelid in self.channelsource[index].all_channels.keys():
+            for channelid in list(self.channelsource[index].all_channels.keys()):
                 if not (channelid in self.channelsource[index].source_data['empty_channels']):
                     source_keys[index].append(channelid)
 
         for index in self.sourceid_order:
             self.channelsource[index].init_channel_source_ids()
-            for channelid, channel in self.channelsource[index].all_channels.items():
+            for channelid, channel in list(self.channelsource[index].all_channels.items()):
                 if not is_data_value('name', channel, str, True):
                     continue
 
@@ -2606,7 +2609,7 @@ class Configure:
                 # Set the group
                 if ((not self.opt_dict['always_use_json'] and self.channels[chanid].group >= 99)
                     or self.opt_dict['always_use_json']):
-                        for g, chan_list in self.channel_grouping.items():
+                        for g, chan_list in list(self.channel_grouping.items()):
                             if chanid in chan_list:
                                 channel['group'] = g
                                 break
@@ -2615,7 +2618,7 @@ class Configure:
                     self.channels[chanid].group = data_value('group', channel, int, 99)
 
                 # Move Dutch/Flemish channels from other to main if any sources places them there
-                for k, v in self.override_groups.items():
+                for k, v in list(self.override_groups.items()):
                     if 'group' in channel and channel['group'] == k and self.channels[chanid].group in v:
                         self.channels[chanid].group = channel['group']
 
@@ -2652,9 +2655,9 @@ class Configure:
 
                 db_channel_source.append(chan)
 
-        for channel in self.channels.values():
+        for channel in list(self.channels.values()):
             # Some channel title renaming
-            if self.opt_dict['always_use_json'] and channel.chanid in self.channel_rename.keys():
+            if self.opt_dict['always_use_json'] and channel.chanid in list(self.channel_rename.keys()):
                 channel.chan_name = self.channel_rename[channel.chanid]
 
             # set the default prime_source
@@ -2678,49 +2681,49 @@ class Configure:
         if self.log_output == None:
             return(0)
 
-        log_array = [u'Python version: %s.%s.%s' % (sys.version_info[0], sys.version_info[1], sys.version_info[2])]
-        log_array.append(u"%s: %s" % (self.country, self.version(True)))
-        log_array.append(u"The Netherlands: %s" % self.version(True, True))
+        log_array = ['Python version: %s.%s.%s' % (sys.version_info[0], sys.version_info[1], sys.version_info[2])]
+        log_array.append("%s: %s" % (self.country, self.version(True)))
+        log_array.append("The Netherlands: %s" % self.version(True, True))
         if dtversion()[6]:
-            log_array.append(u"The Netherlands: %s   (Version: %s.%s.%s -p%s-alfa)" % dtversion()[:5])
+            log_array.append("The Netherlands: %s   (Version: %s.%s.%s -p%s-alfa)" % dtversion()[:5])
 
         elif dtversion()[5]:
-            log_array.append(u"The Netherlands: %s   (Version: %s.%s.%s -p%s-beta)" % dtversion()[:5])
+            log_array.append("The Netherlands: %s   (Version: %s.%s.%s -p%s-beta)" % dtversion()[:5])
 
         else:
-            log_array.append(u"The Netherlands: %s   (Version: %s.%s.%s -p%s)" % dtversion()[:5])
+            log_array.append("The Netherlands: %s   (Version: %s.%s.%s -p%s)" % dtversion()[:5])
 
-        log_array.append(u"%s: %s" % (self.text('config', 7, type = 'other'), self.language))
-        log_array.append(u'Capabilities:"baseline" ,"cache" ,"manualconfig" ,"preferredmethod")')
-        log_array.append(u'Preferred Methode: "allatonce"')
-        log_array.append(u'log level = %s' % (self.opt_dict['log_level']))
-        log_array.append(u'match log level = %s' % (self.opt_dict['match_log_level']))
-        log_array.append(u'global_timeout = %s' % (self.opt_dict['global_timeout']))
-        log_array.append(u'max_simultaneous_fetches = %s' % (self.opt_dict['max_simultaneous_fetches']))
-        log_array.append(u'config_file = %s' % (self.opt_dict['config_file']))
-        log_array.append(u'cache_file = %s.db' % (self.opt_dict['cache_file']))
-        log_array.append(u'clean_cache = %s' % (self.args.clean_cache))
-        log_array.append(u'disable_ttvdb = %s' % (self.opt_dict['disable_ttvdb']))
-        log_array.append(u'ttvdb_lookup_level = %s' % (self.opt_dict['ttvdb_lookup_level']))
-        log_array.append(u'pre_merge = %s' % (self.opt_dict['pre_merge']))
-        log_array.append(u'quiet = %s' % (self.opt_dict['quiet']))
-        log_array.append(u'output_file = %s' % (self.opt_dict['output_file']))
-        log_array.append(u'output_tz = %s' % (self.opt_dict['output_tz']))
-        log_array.append(u'fast = %s' % (self.opt_dict['fast']))
-        log_array.append(u'offset = %s' % (self.opt_dict['offset']))
-        log_array.append(u'days = %s' % (self.opt_dict['days']))
-        log_array.append(u'slowdays = %s' % (self.opt_dict['slowdays']))
-        log_array.append(u'compat = %s' % (self.opt_dict['compat']))
-        log_array.append(u'legacy_xmltvids = %s' % (self.opt_dict['legacy_xmltvids']))
-        log_array.append(u'max_overlap = %s' % (self.opt_dict['max_overlap']))
-        log_array.append(u'overlap_strategy = %s' % (self.opt_dict['overlap_strategy']))
-        log_array.append(u'logos = %s' % (self.opt_dict['logos']))
-        log_array.append(u'desc_length = %s' % (self.opt_dict['desc_length']))
-        log_array.append(u'cattrans = %s' % (self.opt_dict['cattrans']))
-        log_array.append(u'use_split_episodes = %s' % (self.opt_dict['use_split_episodes']))
-        log_array.append(u'ratingstyle = %s' % (self.opt_dict['ratingstyle']))
-        log_array.append(u'mark_hd = %s' % (self.opt_dict['mark_hd']))
-        log_array.append(u'use_utc = %s' % (self.opt_dict['use_utc']))
+        log_array.append("%s: %s" % (self.text('config', 7, type = 'other'), self.language))
+        log_array.append('Capabilities:"baseline" ,"cache" ,"manualconfig" ,"preferredmethod")')
+        log_array.append('Preferred Methode: "allatonce"')
+        log_array.append('log level = %s' % (self.opt_dict['log_level']))
+        log_array.append('match log level = %s' % (self.opt_dict['match_log_level']))
+        log_array.append('global_timeout = %s' % (self.opt_dict['global_timeout']))
+        log_array.append('max_simultaneous_fetches = %s' % (self.opt_dict['max_simultaneous_fetches']))
+        log_array.append('config_file = %s' % (self.opt_dict['config_file']))
+        log_array.append('cache_file = %s.db' % (self.opt_dict['cache_file']))
+        log_array.append('clean_cache = %s' % (self.args.clean_cache))
+        log_array.append('disable_ttvdb = %s' % (self.opt_dict['disable_ttvdb']))
+        log_array.append('ttvdb_lookup_level = %s' % (self.opt_dict['ttvdb_lookup_level']))
+        log_array.append('pre_merge = %s' % (self.opt_dict['pre_merge']))
+        log_array.append('quiet = %s' % (self.opt_dict['quiet']))
+        log_array.append('output_file = %s' % (self.opt_dict['output_file']))
+        log_array.append('output_tz = %s' % (self.opt_dict['output_tz']))
+        log_array.append('fast = %s' % (self.opt_dict['fast']))
+        log_array.append('offset = %s' % (self.opt_dict['offset']))
+        log_array.append('days = %s' % (self.opt_dict['days']))
+        log_array.append('slowdays = %s' % (self.opt_dict['slowdays']))
+        log_array.append('compat = %s' % (self.opt_dict['compat']))
+        log_array.append('legacy_xmltvids = %s' % (self.opt_dict['legacy_xmltvids']))
+        log_array.append('max_overlap = %s' % (self.opt_dict['max_overlap']))
+        log_array.append('overlap_strategy = %s' % (self.opt_dict['overlap_strategy']))
+        log_array.append('logos = %s' % (self.opt_dict['logos']))
+        log_array.append('desc_length = %s' % (self.opt_dict['desc_length']))
+        log_array.append('cattrans = %s' % (self.opt_dict['cattrans']))
+        log_array.append('use_split_episodes = %s' % (self.opt_dict['use_split_episodes']))
+        log_array.append('ratingstyle = %s' % (self.opt_dict['ratingstyle']))
+        log_array.append('mark_hd = %s' % (self.opt_dict['mark_hd']))
+        log_array.append('use_utc = %s' % (self.opt_dict['use_utc']))
         for index in self.available_sources:
             if index in self.opt_dict['disable_source']:
                 log_array.append(self.text('config', 64, (index, self.channelsource[index].source)))
@@ -2729,16 +2732,16 @@ class Configure:
                 log_array.append(self.text('config', 65, (index, self.channelsource[index].source)))
 
         log_array.append(self.text('config', 66))
-        for chan_def in self.channels.values():
+        for chan_def in list(self.channels.values()):
             if not (chan_def.active or chan_def.is_child):
                 continue
 
-            log_array.append(u'[%s (Chanid=%s)]\n' % (chan_def.chan_name, chan_def.chanid))
+            log_array.append('[%s (Chanid=%s)]\n' % (chan_def.chan_name, chan_def.chanid))
             if chan_def.get_opt('xmltvid_alias') != None:
-                log_array.append(u'  xmltvID_alias = %s\n' % (chan_def.get_opt('xmltvid_alias')))
+                log_array.append('  xmltvID_alias = %s\n' % (chan_def.get_opt('xmltvid_alias')))
 
             src_id = chan_def.opt_dict['prime_source']
-            log_array.append(u'  prime_source = %s (%s)\n' % (src_id, self.channelsource[src_id].source))
+            log_array.append('  prime_source = %s (%s)\n' % (src_id, self.channelsource[src_id].source))
             if not self.opt_dict['always_use_json'] and \
                 chan_def.chanid in self.prime_source and self.prime_source[chan_def.chanid] != src_id:
                 log_array.append(self.text('config', 67 ,
@@ -2760,26 +2763,26 @@ class Configure:
             src_id = chan_def.opt_dict['prefered_description']
             if src_id != -1:
                 if chan_def.get_channelid(src_id) != '':
-                    log_array.append(u'  prefered_description = %s (%s)\n' %
+                    log_array.append('  prefered_description = %s (%s)\n' %
                         (src_id, self.channelsource[src_id].source))
 
             if chan_def.get_opt('add_hd_id'):
-                log_array.append(u'  add_hd_id = True\n')
+                log_array.append('  add_hd_id = True\n')
 
             elif chan_def.get_opt('mark_hd'):
-                log_array.append(u'  mark_hd = True\n')
+                log_array.append('  mark_hd = True\n')
 
-            if 'slowdays' in chan_def.opt_dict.keys() and \
+            if 'slowdays' in list(chan_def.opt_dict.keys()) and \
                 chan_def.opt_dict['slowdays'] not in (self.opt_dict['slowdays'], None):
-                log_array.append(u'  slowdays = %s' % (chan_def.get_opt('slowdays')))
+                log_array.append('  slowdays = %s' % (chan_def.get_opt('slowdays')))
 
             for val in ( 'fast', 'compat', 'legacy_xmltvids', 'max_overlap', 'overlap_strategy', \
               'logos', 'desc_length', 'cattrans', 'disable_ttvdb', 'use_split_episodes', \
               'ttvdb_lookup_level', 'pre_merge'):
                 if chan_def.get_opt(val) != self.opt_dict[val]:
-                    log_array.append(u'  %s = %s\n' % (val, chan_def.get_opt(val)))
+                    log_array.append('  %s = %s\n' % (val, chan_def.get_opt(val)))
 
-        log_array.append(u' \n')
+        log_array.append(' \n')
         self.log(log_array, 1, 2)
 
     # end write_opts_to_log()
@@ -2796,9 +2799,9 @@ class Configure:
         if f == None:
             return False
 
-        f.write(u'# encoding: utf-8\n')
-        f.write(u'# configversion: %s.%s%s\n' % (self.api_major + 2, self.api_minor, '{:0>2}'.format(self.api_patch)))
-        f.write(u'\n')
+        f.write('# encoding: utf-8\n')
+        f.write('# configversion: %s.%s%s\n' % (self.api_major + 2, self.api_minor, '{:0>2}'.format(self.api_patch)))
+        f.write('\n')
 
         # Save the options
         for i in range(1, 11):
@@ -2806,95 +2809,95 @@ class Configure:
             if line != '':
                 f.write(line)
 
-        f.write(u'\n')
-        f.write(u'[%s]\n' % self.__CONFIG_SECTIONS__[1])
-        f.write(u'language = %s\n' % self.lang)
+        f.write('\n')
+        f.write('[%s]\n' % self.__CONFIG_SECTIONS__[1])
+        f.write('language = %s\n' % self.lang)
         f.write(self.text('config', 0, type = 'confighelp'))
-        f.write(u'data_version = %s\n' % self.opt_dict['data_version'])
+        f.write('data_version = %s\n' % self.opt_dict['data_version'])
         for i in range(11, 21):
             line = self.text('config', i, type = 'confighelp', return_empty_on_missing = True)
             if line != '':
                 f.write(line)
 
-        f.write(u'always_use_json = %s\n' % self.opt_dict['always_use_json'])
-        f.write(u'group_active_channels = %s\n' % self.opt_dict['group_active_channels'])
+        f.write('always_use_json = %s\n' % self.opt_dict['always_use_json'])
+        f.write('group_active_channels = %s\n' % self.opt_dict['group_active_channels'])
         if self.write_info_files:
-            f.write(u'write_info_files = True\n')
+            f.write('write_info_files = True\n')
             if self.opt_dict['mail_log'] and self.opt_dict['mail_info_address'] != None:
-                f.write(u'mail_info_address = %s\n' % self.opt_dict['mail_info_address'])
+                f.write('mail_info_address = %s\n' % self.opt_dict['mail_info_address'])
 
-            f.write(u'\n')
+            f.write('\n')
 
         for i in range(21, 41):
             line = self.text('config', i, type = 'confighelp', return_empty_on_missing = True)
             if line != '':
                 f.write(line)
 
-        f.write(u'global_timeout = %s\n' % self.opt_dict['global_timeout'])
-        f.write(u'max_simultaneous_fetches = %s\n' % self.opt_dict['max_simultaneous_fetches'])
-        f.write(u'\n')
+        f.write('global_timeout = %s\n' % self.opt_dict['global_timeout'])
+        f.write('max_simultaneous_fetches = %s\n' % self.opt_dict['max_simultaneous_fetches'])
+        f.write('\n')
         for i in range(41, 61):
             line = self.text('config', i, type = 'confighelp', return_empty_on_missing = True)
             if line != '':
                 f.write(line)
 
-        f.write(u'log_level = %s\n' % self.opt_dict['log_level'])
+        f.write('log_level = %s\n' % self.opt_dict['log_level'])
         for i in range(61, 71):
             line = self.text('config', i, type = 'confighelp', return_empty_on_missing = True)
             if line != '':
                 f.write(line)
 
-        f.write(u'match_log_level = %s\n' % self.opt_dict['match_log_level'])
-        f.write(u'\n')
-        f.write(u'mail_log = %s\n' % self.opt_dict['mail_log'])
+        f.write('match_log_level = %s\n' % self.opt_dict['match_log_level'])
+        f.write('\n')
+        f.write('mail_log = %s\n' % self.opt_dict['mail_log'])
         for i in range(71, 81):
             line = self.text('config', i, type = 'confighelp', return_empty_on_missing = True)
             if line != '':
                 f.write(line)
 
-        f.write(u'mail_log_address = %s\n' % self.opt_dict['mail_log_address'])
-        f.write(u'mailserver = %s\n' % self.opt_dict['mailserver'])
-        f.write(u'mailport = %s\n' % self.opt_dict['mailport'])
-        f.write(u'\n')
-        f.write(u'quiet = %s\n' % self.opt_dict['quiet'])
-        f.write(u'output_file = %s\n' % self.opt_dict['output_file'])
-        f.write(u'output_tz = %s\n' % self.opt_dict['output_tz'])
+        f.write('mail_log_address = %s\n' % self.opt_dict['mail_log_address'])
+        f.write('mailserver = %s\n' % self.opt_dict['mailserver'])
+        f.write('mailport = %s\n' % self.opt_dict['mailport'])
+        f.write('\n')
+        f.write('quiet = %s\n' % self.opt_dict['quiet'])
+        f.write('output_file = %s\n' % self.opt_dict['output_file'])
+        f.write('output_tz = %s\n' % self.opt_dict['output_tz'])
         for index in self.source_order:
             if index in self.opt_dict['disable_source']:
-                f.write(u'disable_source = %s\n' % index)
+                f.write('disable_source = %s\n' % index)
 
             elif index in self.opt_dict['disable_detail_source']:
-                f.write(u'disable_detail_source = %s\n' % index)
+                f.write('disable_detail_source = %s\n' % index)
 
         for i in range(191, 205):
             line = self.text('config', i, type = 'confighelp', return_empty_on_missing = True)
             if line != '':
                 f.write(line)
 
-        f.write(u'disable_ttvdb = %s\n' % self.opt_dict['disable_ttvdb'])
-        f.write(u'ttvdb_lookup_level = %s\n' % self.opt_dict['ttvdb_lookup_level'])
-        f.write(u'pre_merge = %s\n' % self.opt_dict['pre_merge'])
-        f.write(u'compat = %s\n' % self.opt_dict['compat'])
-        f.write(u'legacy_xmltvids = %s\n' % self.opt_dict['legacy_xmltvids'])
-        f.write(u'logos = %s\n' % self.opt_dict['logos'])
-        f.write(u'use_utc = %s\n' % self.opt_dict['use_utc'])
-        f.write(u'fast = %s\n' % self.opt_dict['fast'])
-        f.write(u'offset = %s\n' % self.opt_dict['offset'])
-        f.write(u'days = %s\n' % self.opt_dict['days'])
-        f.write(u'slowdays = %s\n' % self.opt_dict['slowdays'])
-        f.write(u'cattrans = %s\n' % self.opt_dict['cattrans'])
-        f.write(u'mark_hd = %s\n' % self.opt_dict['mark_hd'])
-        f.write(u'overlap_strategy = %s\n' % self.opt_dict['overlap_strategy'] )
-        f.write(u'max_overlap = %s\n' % self.opt_dict['max_overlap'])
-        f.write(u'desc_length = %s\n' % self.opt_dict['desc_length'])
+        f.write('disable_ttvdb = %s\n' % self.opt_dict['disable_ttvdb'])
+        f.write('ttvdb_lookup_level = %s\n' % self.opt_dict['ttvdb_lookup_level'])
+        f.write('pre_merge = %s\n' % self.opt_dict['pre_merge'])
+        f.write('compat = %s\n' % self.opt_dict['compat'])
+        f.write('legacy_xmltvids = %s\n' % self.opt_dict['legacy_xmltvids'])
+        f.write('logos = %s\n' % self.opt_dict['logos'])
+        f.write('use_utc = %s\n' % self.opt_dict['use_utc'])
+        f.write('fast = %s\n' % self.opt_dict['fast'])
+        f.write('offset = %s\n' % self.opt_dict['offset'])
+        f.write('days = %s\n' % self.opt_dict['days'])
+        f.write('slowdays = %s\n' % self.opt_dict['slowdays'])
+        f.write('cattrans = %s\n' % self.opt_dict['cattrans'])
+        f.write('mark_hd = %s\n' % self.opt_dict['mark_hd'])
+        f.write('overlap_strategy = %s\n' % self.opt_dict['overlap_strategy'] )
+        f.write('max_overlap = %s\n' % self.opt_dict['max_overlap'])
+        f.write('desc_length = %s\n' % self.opt_dict['desc_length'])
         for i in range(81, 91):
             line = self.text('config', i, type = 'confighelp', return_empty_on_missing = True)
             if line != '':
                 f.write(line)
 
-        f.write(u'ratingstyle = %s\n' % self.opt_dict['ratingstyle'])
-        f.write(u'use_split_episodes = %s\n' % self.opt_dict['use_split_episodes'])
-        f.write(u'\n')
+        f.write('ratingstyle = %s\n' % self.opt_dict['ratingstyle'])
+        f.write('use_split_episodes = %s\n' % self.opt_dict['use_split_episodes'])
+        f.write('\n')
         for i in range(91, 141):
             line = self.text('config', i, type = 'confighelp', return_empty_on_missing = True)
             if line != '':
@@ -2951,8 +2954,8 @@ class Configure:
 
                         # Look for section headers
                         config_title = re.search('\[(.*?)\]', line)
-                        if config_title != None and (config_title.group(1) in self.__CONFIG_SECTIONS__.values()):
-                            for i, v in self.__CONFIG_SECTIONS__.items():
+                        if config_title != None and (config_title.group(1) in list(self.__CONFIG_SECTIONS__.values())):
+                            for i, v in list(self.__CONFIG_SECTIONS__.items()):
                                 if v == config_title.group(1):
                                     type = i
                                     break
@@ -2967,7 +2970,7 @@ class Configure:
 
                         if type > 1:
                             # We just copy everything except the old configuration (type = 1)
-                            f.write(line + u'\n')
+                            f.write(line + '\n')
                     except:
                         self.log(self.text('config', 71))
                         continue
@@ -3013,9 +3016,9 @@ class Configure:
                         if self.configversion != 1.0:
                             # Look for section headers
                             config_title = re.search('\[(.*?)\]', line)
-                            if config_title != None and (config_title.group(1) in self.__CONFIG_SECTIONS__.values()):
+                            if config_title != None and (config_title.group(1) in list(self.__CONFIG_SECTIONS__.values())):
                                 section = config_title.group(1)
-                                for i, v in self.__CONFIG_SECTIONS__.items():
+                                for i, v in list(self.__CONFIG_SECTIONS__.items()):
                                     if v == config_title.group(1):
                                         type = i
                                         continue
@@ -3030,7 +3033,7 @@ class Configure:
                                 continue
 
                             # Unknown Section header, so ignore
-                            if line[0:1] == '[' or re.sub('#', '', line).strip() == u'Channel specific settings other then the above or the default:':
+                            if line[0:1] == '[' or re.sub('#', '', line).strip() == 'Channel specific settings other then the above or the default:':
                                 type = 0
                                 continue
 
@@ -3061,54 +3064,54 @@ class Configure:
                 chan_added = []
                 chan_list = {}
                 for g in self.group_order:
-                    chan_list[unicode(g)] =[]
+                    chan_list[str(g)] =[]
 
                 if self.configversion <= 2.0:
                     for item in configlines['2']:
                         chan = item.split(None, 1) # split on first whitespace
                         if len(chan) != 2:
-                            chan_not_updated.append(u'# %s\n' % (item))
+                            chan_not_updated.append('# %s\n' % (item))
                             continue
 
-                        if chan[0].strip() in self.channels.keys():
+                        if chan[0].strip() in list(self.channels.keys()):
                             chanid = chan[0].strip()
-                            grp = u'0' if self.args.group_active_channels else unicode(self.channels[chanid].group)
+                            grp = '0' if self.args.group_active_channels else str(self.channels[chanid].group)
                             chan_list[grp].append(get_channel_string(chanid, True, '%s;%s;%s' % \
                                 (chan[1], self.channels[chanid].group, chanid)))
                             chan_added.append(chanid)
 
                         else:
-                            chan_not_updated.append(u'# %s\n' % (item))
+                            chan_not_updated.append('# %s\n' % (item))
 
                     for item in configlines['2remarks']:
                         chan = re.sub('#', '', item)
                         chan = chan.split(None, 1) # split on first whitespace
                         if len(chan) != 2:
-                            chan_not_updated.append(u'# %s\n' % (item))
+                            chan_not_updated.append('# %s\n' % (item))
                             continue
 
-                        if chan[0].strip() in self.channels.keys():
+                        if chan[0].strip() in list(self.channels.keys()):
                             chanid = chan[0].strip()
-                            chan_list[unicode(self.channels[chanid].group)].append(get_channel_string(chanid, False, '%s;%s;%s' % \
+                            chan_list[str(self.channels[chanid].group)].append(get_channel_string(chanid, False, '%s;%s;%s' % \
                                 (chan[1], self.channels[chanid].group, chanid)))
                             chan_added.append(chanid)
 
                         else:
-                            chan_not_updated.append(u'# %s\n' % (item))
+                            chan_not_updated.append('# %s\n' % (item))
 
                 if self.configversion > 2.0:
                     for item in configlines['3']:
                         chan = re.split(';', item)
                         if self.configversion == 2.1 and len(chan) != 8:
-                            chan_not_updated.append(u'# %s\n' % (item))
+                            chan_not_updated.append('# %s\n' % (item))
                             continue
 
                         chan_found = False
-                        for chanid, channel in self.channels.items():
+                        for chanid, channel in list(self.channels.items()):
                             for index in range(min(self.source_count,len(chan) - 4)):
                                 if (chan[index + 2].strip() !='') and (chan[index + 2].strip() == channel.get_channelid(index)):
                                     chan_found = True
-                                    grp = u'0' if self.args.group_active_channels else chan[1]
+                                    grp = '0' if self.args.group_active_channels else chan[1]
                                     chan_list[grp].append(get_channel_string(chanid, True, '%s;%s;%s' % \
                                         (chan[0], chan[1], chanid), '%s;%s' % (chan[-2], chan[-1])))
                                     chan_added.append(chanid)
@@ -3119,7 +3122,7 @@ class Configure:
                                 break
 
                         else:
-                            chan_not_updated.append(u'# %s\n' % (item))
+                            chan_not_updated.append('# %s\n' % (item))
 
                     for item in configlines['3remarks']:
                         chan = re.sub('#', '', item)
@@ -3128,11 +3131,11 @@ class Configure:
 
                         chan = re.split(';', chan)
                         if self.configversion == 2.1 and len(chan) != 8:
-                            chan_not_updated.append(u'# %s\n' % (item))
+                            chan_not_updated.append('# %s\n' % (item))
                             continue
 
                         chan_found = False
-                        for chanid, channel in self.channels.items():
+                        for chanid, channel in list(self.channels.items()):
                             for index in range(min(self.source_count,len(chan) - 4)):
                                 if (chan[index + 2].strip() !='') and (chan[index + 2].strip() == channel.get_channelid(index)):
                                     chan_list[chan[1]].append(get_channel_string(chanid, False, '%s;%s;%s' % \
@@ -3145,53 +3148,54 @@ class Configure:
                                 break
 
                         else:
-                            chan_not_updated.append(u'# %s\n' % (item))
+                            chan_not_updated.append('# %s\n' % (item))
 
                 del configlines['2']
                 del configlines['3']
                 del configlines['2remarks']
                 del configlines['3remarks']
-                for chanid, channel in self.channels.items():
+                for chanid, channel in list(self.channels.items()):
                     if not chanid in chan_added:
-                        chan_list[unicode(channel.group)].append(get_channel_string(chanid, False))
+                        chan_list[str(channel.group)].append(get_channel_string(chanid, False))
 
                 # At a later config upgrade we here have to parse the type 9 sections
 
         if add_channels:
             chan_list = {}
             for g in self.group_order:
-                chan_list[unicode(g)] =[]
+                chan_list[str(g)] =[]
 
-            for chanid, channel in self.channels.items():
+            for chanid, channel in list(self.channels.items()):
                 if channel.group == -1:
                     continue
 
-                grp = u'0' if self.args.group_active_channels and channel.active else unicode(channel.group)
-                chan_list[grp].append(get_channel_string(chanid))
+                grp = '0' if self.args.group_active_channels and channel.active else str(channel.group)
+                if(get_channel_string(chanid)['chan_string'] != None):
+                    chan_list[grp].append(get_channel_string(chanid))
 
-        f.write(u'[%s]\n' % self.__CONFIG_SECTIONS__[3])
+        f.write('[%s]\n' % self.__CONFIG_SECTIONS__[3])
         for g in self.group_order:
             if g == 0 and not self.opt_dict['group_active_channels']:
                 continue
 
-            f.write(u'\n')
-            f.write(u'# %s\n' % self.chan_groups[g])
-            chan_list[unicode(g)].sort(key=lambda channel: (channel['chan_string']))
-            chan_list[unicode(g)].sort(key=lambda channel: (channel['active']), reverse=True)
-            for channel in chan_list[unicode(g)]:
+            f.write('\n')
+            f.write('# %s\n' % self.chan_groups[g])
+            chan_list[str(g)].sort(key=lambda channel: (channel['chan_string']))
+            chan_list[str(g)].sort(key=lambda channel: (channel['active']), reverse=True)
+            for channel in chan_list[str(g)]:
                 if channel['chan_string'] != None:
                     f.write(channel['chan_string'])
 
         if len(chan_not_updated) > 0:
-            f.write(u'\n')
-            f.write(u'# Following are not converted lines!\n')
+            f.write('\n')
+            f.write('# Following are not converted lines!\n')
             for line in chan_not_updated:
                 f.write(line)
 
-        f.write(u'\n')
-        f.write(u'# Channel specific settings other then the above or the default:\n')
+        f.write('\n')
+        f.write('# Channel specific settings other then the above or the default:\n')
         chan_names = []
-        for chan_def in self.channels.values():
+        for chan_def in list(self.channels.values()):
             for index in range(self.source_count):
                 if chan_def.get_channelid(index) != '':
                     # Only add specific settings if at least one sourceid present
@@ -3203,9 +3207,9 @@ class Configure:
 
         def write_channelheader(chan_def, chan_name_written):
             if not chan_name_written:
-                f.write(u'\n')
-                f.write(u'# %s\n' % (chan_def.chan_name))
-                f.write(u'[Channel %s]\n' % (chan_def.chanid))
+                f.write('\n')
+                f.write('# %s\n' % (chan_def.chan_name))
+                f.write('[Channel %s]\n' % (chan_def.chanid))
 
             return True
 
@@ -3216,9 +3220,9 @@ class Configure:
                 if index in self.opt_dict['disable_source']:
                     continue
 
-                if index in chan_def.channelid.keys() and chan_def.get_channelid(index) != '':
+                if index in list(chan_def.channelid.keys()) and chan_def.get_channelid(index) != '':
                     chan_name_written = write_channelheader(chan_def, chan_name_written)
-                    f.write(u'disable_source = %s\n' % index)
+                    f.write('disable_source = %s\n' % index)
 
             for index in chan_def.opt_dict['disable_detail_source']:
                 if index in chan_def.opt_dict['disable_source'] or \
@@ -3226,43 +3230,43 @@ class Configure:
                     index in self.opt_dict['disable_detail_source']:
                     continue
 
-                if index in chan_def.channelid.keys() and chan_def.get_channelid(index) != '':
+                if index in list(chan_def.channelid.keys()) and chan_def.get_channelid(index) != '':
                     chan_name_written = write_channelheader(chan_def, chan_name_written)
-                    f.write(u'disable_detail_source = %s\n' % index)
+                    f.write('disable_detail_source = %s\n' % index)
 
             if chan_def.opt_dict['xmltvid_alias'] != None and \
                 chan_def.opt_dict['xmltvid_alias'] != chan_def.chanid:
                 chan_name_written = write_channelheader(chan_def, chan_name_written)
-                f.write(u'xmltvid_alias = %s\n' % (chan_def.opt_dict['xmltvid_alias']))
+                f.write('xmltvid_alias = %s\n' % (chan_def.opt_dict['xmltvid_alias']))
 
             if not self.validate_option('prime_source', chan_def, check_default = True):
                 chan_name_written = write_channelheader(chan_def, chan_name_written)
-                f.write(u'prime_source = %s\n' % chan_def.opt_dict['prime_source'])
+                f.write('prime_source = %s\n' % chan_def.opt_dict['prime_source'])
 
             opt_val = chan_def.opt_dict['prefered_description']
-            if opt_val in chan_def.channelid.keys() and chan_def.get_channelid(opt_val) != '':
+            if opt_val in list(chan_def.channelid.keys()) and chan_def.get_channelid(opt_val) != '':
                 chan_name_written = write_channelheader(chan_def, chan_name_written)
-                f.write(u'prefered_description = %s\n' % ( opt_val))
+                f.write('prefered_description = %s\n' % ( opt_val))
 
             if chan_def.get_opt('add_hd_id'):
                 chan_name_written = write_channelheader(chan_def, chan_name_written)
-                f.write(u'add_hd_id = True\n')
+                f.write('add_hd_id = True\n')
 
-            if 'slowdays' in chan_def.opt_dict.keys() and \
+            if 'slowdays' in list(chan_def.opt_dict.keys()) and \
                 chan_def.opt_dict['slowdays'] not in (self.opt_dict['slowdays'], None):
                 chan_name_written = write_channelheader(chan_def, chan_name_written)
-                f.write(u'slowdays = %s\n' % (chan_def.get_opt('slowdays')))
+                f.write('slowdays = %s\n' % (chan_def.get_opt('slowdays')))
 
             if self.opt_dict['disable_ttvdb'] == False and chan_def.opt_dict['disable_ttvdb'] == True:
                 chan_name_written = write_channelheader(chan_def, chan_name_written)
-                f.write(u'disable_ttvdb = True\n')
+                f.write('disable_ttvdb = True\n')
 
             for val in ( 'fast', 'compat', 'legacy_xmltvids', 'max_overlap', 'overlap_strategy', \
               'logos', 'desc_length', 'cattrans', 'mark_hd', 'use_split_episodes', \
               'ttvdb_lookup_level', 'pre_merge'):
                 if chan_def.get_opt(val) != self.opt_dict[val]:
                     chan_name_written = write_channelheader(chan_def, chan_name_written)
-                    f.write(u'%s = %s\n' % (val, chan_def.get_opt(val)))
+                    f.write('%s = %s\n' % (val, chan_def.get_opt(val)))
 
         f.close()
         return True
@@ -3277,98 +3281,98 @@ class Configure:
         if f == None:
             return False
 
-        f.write(u'# encoding: utf-8\n')
-        f.write(u'\n')
+        f.write('# encoding: utf-8\n')
+        f.write('\n')
         for i in range(141, 146):
             line = self.text('config', i, type = 'confighelp', return_empty_on_missing = True)
             if line != '':
                 f.write(line)
 
-        f.write(u'\n')
-        f.write(u'[%s]\n' % self.__DEFAULT_SECTIONS__[2])
+        f.write('\n')
+        f.write('[%s]\n' % self.__DEFAULT_SECTIONS__[2])
 
         self.notitlesplit.sort()
         for t in self.notitlesplit:
-             f.write(u'%s\n' % t)
+             f.write('%s\n' % t)
 
-        f.write(u'\n')
+        f.write('\n')
         for i in range(146, 150):
             line = self.text('config', i, type = 'confighelp', return_empty_on_missing = True)
             if line != '':
                 f.write(line)
 
         f.write(self.text('config', 152, type = 'confighelp'))
-        f.write(u'\n')
-        f.write(u'[%s]\n' % self.__DEFAULT_SECTIONS__[3])
+        f.write('\n')
+        f.write('[%s]\n' % self.__DEFAULT_SECTIONS__[3])
 
         self.groupnameremove.sort(key=lambda p: len(p), reverse = True)
         for t in self.groupnameremove:
-             f.write(u'%s\n' % t)
+             f.write('%s\n' % t)
 
-        f.write(u'\n')
+        f.write('\n')
         for i in range(150, 154):
             line = self.text('config', i, type = 'confighelp', return_empty_on_missing = True)
             if line != '':
                 f.write(line)
 
-        f.write(u'\n')
-        f.write(u'[%s]\n' % self.__DEFAULT_SECTIONS__[4])
+        f.write('\n')
+        f.write('[%s]\n' % self.__DEFAULT_SECTIONS__[4])
 
         l = []
-        for i, t in self.titlerename.iteritems():
-            l.append(u'%s = %s\n' % (i,t))
+        for i, t in list(self.titlerename.items()):
+            l.append('%s = %s\n' % (i,t))
         l.sort()
         for string in l:
             f.write(string)
 
-        f.write(u'\n')
+        f.write('\n')
         for i in range(154, 162):
             line = self.text('config', i, type = 'confighelp', return_empty_on_missing = True)
             if line != '':
                 f.write(line)
 
-        f.write(u'\n')
-        f.write(u'[%s]\n' % self.__DEFAULT_SECTIONS__[5])
+        f.write('\n')
+        f.write('[%s]\n' % self.__DEFAULT_SECTIONS__[5])
 
         l = []
         self.detailed_genres.sort()
         for dg in self.detailed_genres:
-             f.write(u'%s\n' % dg)
+             f.write('%s\n' % dg)
 
-        f.write(u'\n')
+        f.write('\n')
         for i in range(211, 216):
             line = self.text('config', i, type = 'confighelp', return_empty_on_missing = True)
             if line != '':
                 f.write(line)
 
-        f.write(u'\n')
-        f.write(u'[%s]\n' % self.__DEFAULT_SECTIONS__[6])
+        f.write('\n')
+        f.write('[%s]\n' % self.__DEFAULT_SECTIONS__[6])
 
         self.series_genres.sort()
         for t in self.series_genres:
-             f.write(u'%s\n' % t)
+             f.write('%s\n' % t)
 
-        f.write(u'\n')
-        f.write(u'[%s]\n' % self.__DEFAULT_SECTIONS__[7])
+        f.write('\n')
+        f.write('[%s]\n' % self.__DEFAULT_SECTIONS__[7])
 
         self.movie_genres.sort()
         for t in self.movie_genres:
-             f.write(u'%s\n' % t)
+             f.write('%s\n' % t)
 
-        f.write(u'\n')
-        f.write(u'[%s]\n' % self.__DEFAULT_SECTIONS__[8])
+        f.write('\n')
+        f.write('[%s]\n' % self.__DEFAULT_SECTIONS__[8])
 
         self.sports_genres.sort()
         for t in self.sports_genres:
-             f.write(u'%s\n' % t)
+             f.write('%s\n' % t)
 
         if len(self.cattranstype[1]) > 0:
-            slist = u'# '
-            for s in self.cattranstype[1].values():
-                slist = u'%s%s, ' % (slist, self.channelsource[s].source)
+            slist = '# '
+            for s in list(self.cattranstype[1].values()):
+                slist = '%s%s, ' % (slist, self.channelsource[s].source)
 
-            slist = u'%s genres\n' % (slist[0:-2])
-            f.write(u'\n')
+            slist = '%s genres\n' % (slist[0:-2])
+            f.write('\n')
             f.write(self.text('config', 162, type = 'confighelp'))
             f.write(slist)
             for i in range(163, 166):
@@ -3380,31 +3384,31 @@ class Configure:
             ctlist.sort()
             for index in ctlist:
                 source = self.channelsource[self.cattranstype[1][index]]
-                f.write(u'\n')
-                f.write(u'[%s]\n' % self.__DEFAULT_SECTIONS__[index])
+                f.write('\n')
+                f.write('[%s]\n' % self.__DEFAULT_SECTIONS__[index])
 
                 # remove doubles and sort
-                for (k1, k2), v in source.new_cattrans.items():
-                    if not (k1 in source.source_data['cattrans'].keys()):
+                for (k1, k2), v in list(source.new_cattrans.items()):
+                    if not (k1 in list(source.source_data['cattrans'].keys())):
                         source.source_data['cattrans'][k1] = {}
                         source.source_data['cattrans'][k1]['default'] = [self.cattrans_unknown.lower().strip(),'']
                         if k2 not in ('',' '):
                             source.source_data['cattrans'][k1][k2] = v
 
-                    elif k2 not in ('',' ') and not k2 in source.source_data['cattrans'][k1].keys():
+                    elif k2 not in ('',' ') and not k2 in list(source.source_data['cattrans'][k1].keys()):
                         source.source_data['cattrans'][k1][k2] = v
 
                 # format for export
                 gl1 = []
                 gl = []
-                for k, v in source.source_data['cattrans'].items():
+                for k, v in list(source.source_data['cattrans'].items()):
 
-                    for sg in v.keys():
+                    for sg in list(v.keys()):
                         if sg == 'default':
-                            gl1.append(u'%s: = %s: %s\n' % (k.strip().lower(), v[sg][0].strip().lower(), v[sg][1].strip().lower()))
+                            gl1.append('%s: = %s: %s\n' % (k.strip().lower(), v[sg][0].strip().lower(), v[sg][1].strip().lower()))
 
                         else:
-                            gl.append(u'%s: %s = %s: %s\n' % (k.strip().lower(), sg.strip().lower(), v[sg][0].strip().lower(), v[sg][1].strip().lower()))
+                            gl.append('%s: %s = %s: %s\n' % (k.strip().lower(), sg.strip().lower(), v[sg][0].strip().lower(), v[sg][1].strip().lower()))
 
                 gl1.sort()
                 for string in gl1:
@@ -3415,11 +3419,11 @@ class Configure:
                     f.write(string)
 
         if len(self.cattranstype[2]) > 0:
-            slist = u''
-            for s in self.cattranstype[2].values():
-                slist = u'%s%s, ' % (slist, self.channelsource[s].source)
+            slist = ''
+            for s in list(self.cattranstype[2].values()):
+                slist = '%s%s, ' % (slist, self.channelsource[s].source)
 
-            f.write(u'\n')
+            f.write('\n')
             f.write(self.text('config', 166, type = 'confighelp'))
             f.write(self.text('config', 167, (slist[0:-2], ), type = 'confighelp'))
             for i in range(168, 171):
@@ -3431,8 +3435,8 @@ class Configure:
             ctlist.sort()
             for index in ctlist:
                 source = self.channelsource[self.cattranstype[2][index]]
-                f.write(u'\n')
-                f.write(u'[%s]\n' % self.__DEFAULT_SECTIONS__[index])
+                f.write('\n')
+                f.write('[%s]\n' % self.__DEFAULT_SECTIONS__[index])
                 # remove doubles and sort
                 gs = set(source.new_cattrans)
                 gl = []
@@ -3441,29 +3445,29 @@ class Configure:
                         source.source_data['cattrans'][k] = v
 
                 # format for export
-                for k, v in source.source_data['cattrans'].iteritems():
-                    gl.append(u'%s = %s\n' % (v, k))
+                for k, v in list(source.source_data['cattrans'].items()):
+                    gl.append('%s = %s\n' % (v, k))
                 gl.sort()
 
                 for string in gl:
                     f.write(string)
 
-        f.write(u'\n')
+        f.write('\n')
         f.write(self.text('config', 171, type = 'confighelp'))
-        f.write(u'# \n')
+        f.write('# \n')
         for i in range(172, 178):
             line = self.text('config', i, type = 'confighelp', return_empty_on_missing = True)
             if line != '':
                 f.write(line)
 
-        f.write(u'# \n')
+        f.write('# \n')
         for i in range(178, 187):
             line = self.text('config', i, type = 'confighelp', return_empty_on_missing = True)
             if line != '':
                 f.write(line)
 
-        f.write(u'\n')
-        f.write(u'[%s]\n' % self.__DEFAULT_SECTIONS__[1])
+        f.write('\n')
+        f.write('[%s]\n' % self.__DEFAULT_SECTIONS__[1])
 
         l1 = []
         l2 = []
@@ -3479,19 +3483,19 @@ class Configure:
         # add missing maingenres for new subgenres
         for k1, k2 in self.cattrans:
             if k2 == '':
-                l1.append(u'%s: = %s\n' % (k1, self.cattrans[(k1,k2)]))
+                l1.append('%s: = %s\n' % (k1, self.cattrans[(k1,k2)]))
             else:
-                l2.append(u'%s: %s = %s\n' % (k1, k2, self.cattrans[(k1,k2)]))
-                i = (k1, u'')
+                l2.append('%s: %s = %s\n' % (k1, k2, self.cattrans[(k1,k2)]))
+                i = (k1, '')
                 if not (i in self.cattrans):
-                    l1.append(u'%s:=\n' % k1)
+                    l1.append('%s:=\n' % k1)
         l1.sort()
         l2.sort()
 
         for string in l1:
             f.write(string)
 
-        f.write(u'\n')
+        f.write('\n')
         for string in l2:
             f.write(string)
 
@@ -3530,13 +3534,13 @@ class Configure:
 
         log_array.append(ltext(82, (cdata('detail', self.ttvdb1_id), )))
         log_array.extend([ltext(83, (cdata('fail', self.ttvdb1_id), )), '\n'])
-        for s, source in self.channelsource.items():
+        for s, source in list(self.channelsource.items()):
             if source.detail_processor:
                 log_array.append(ltext(84, (cdata('base', s), source.source, cdata('empty-base', s))))
                 log_array.append(ltext(85, (cdata('detail', s), source.source, cdata('empty-detail', s))))
                 log_array.extend([ltext(86, (cdata('fail', s), source.source)), '\n'])
 
-        for s, source in self.channelsource.items():
+        for s, source in list(self.channelsource.items()):
             if not (source.is_virtual or source.detail_processor):
                 log_array.append(ltext(84, (cdata('base', s), source.source, cdata('empty-base', s))))
                 log_array.extend([ltext(86, (cdata('fail', s), source.source)), '\n'])

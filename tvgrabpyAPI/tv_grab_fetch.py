@@ -1,19 +1,19 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # Python 3 compatibility
-from __future__ import unicode_literals
+
 # from __future__ import print_function
 
 import re, sys, traceback, difflib, os
 import time, datetime, pytz, random
-import requests, httplib, socket
-from DataTreeGrab import *
-from tv_grab_channel import ProgramNode
-from tv_grab_IO import DD_Convert
+import requests, http.client, socket
+from datatree.datatreegrab import *
+from tvgrabpyAPI.tv_grab_channel import ProgramNode
+from tvgrabpyAPI.tv_grab_IO import DD_Convert
 from threading import Thread, RLock, Semaphore, Event
 from xml.sax import saxutils
-from Queue import Queue, Empty
+from queue import Queue, Empty
 from copy import deepcopy, copy
 try:
     import json
@@ -23,12 +23,12 @@ except ImportError:
 try:
     from html.entities import name2codepoint
 except ImportError:
-    from htmlentitydefs import name2codepoint
+    from html.entities import name2codepoint
 
 try:
-    unichr(42)
+    chr(42)
 except NameError:
-    unichr = chr    # Python 3
+    chr = chr    # Python 3
 
 class dtError(dtErrorConstants):
     def __init__(self):
@@ -38,6 +38,7 @@ class dtError(dtErrorConstants):
         self.dtErrorTexts[self.dtShiftedDate] = 'Shifted Page Date!'
 
 dte = dtError()
+MODULE_NAME = 'datatree.datatreegrab'
 
 class URLtypes():
     ONECHANNEL = 1
@@ -110,27 +111,27 @@ class Functions():
             if not cnt_add:
                 cnt_change = -cnt_change
 
-            if chanid != None and isinstance(chanid, (str, unicode)):
-                if not chanid in self.channel_counters.keys():
+            if chanid != None and isinstance(chanid, str):
+                if not chanid in list(self.channel_counters.keys()):
                     self.channel_counters[chanid] = {}
 
-                if not cnt_type in self.channel_counters[chanid].keys():
+                if not cnt_type in list(self.channel_counters[chanid].keys()):
                     self.channel_counters[chanid][cnt_type] = {}
 
-                if not source_id in self.channel_counters[chanid][cnt_type].keys():
+                if not source_id in list(self.channel_counters[chanid][cnt_type].keys()):
                     self.channel_counters[chanid][cnt_type][source_id] = 0
 
                 self.channel_counters[chanid][cnt_type][source_id] += cnt_change
 
-            if not source_id in self.source_counters.keys():
+            if not source_id in list(self.source_counters.keys()):
                 self.source_counters[source_id] = {}
 
-            if not cnt_type in self.source_counters[source_id].keys():
+            if not cnt_type in list(self.source_counters[source_id].keys()):
                 self.source_counters[source_id][cnt_type] = 0
 
             self.source_counters[source_id][cnt_type] += cnt_change
             if isinstance(source_id, int) and (source_id >= 0 or source_id == self.json_id):
-                if cnt_type in self.source_counters['total'].keys():
+                if cnt_type in list(self.source_counters['total'].keys()):
                     self.source_counters['total'][cnt_type] += cnt_change
 
                 else:
@@ -142,21 +143,21 @@ class Functions():
             source_id = self.ttvdb1_id
 
         if chanid == None:
-            if not source_id in self.source_counters.keys():
+            if not source_id in list(self.source_counters.keys()):
                 return 0
 
-            if not cnt_type in self.source_counters[source_id].keys():
+            if not cnt_type in list(self.source_counters[source_id].keys()):
                 return 0
 
             return self.source_counters[source_id][cnt_type]
 
-        elif not chanid in self.channel_counters.keys():
+        elif not chanid in list(self.channel_counters.keys()):
             return 0
 
-        elif not cnt_type in self.channel_counters[chanid].keys():
+        elif not cnt_type in list(self.channel_counters[chanid].keys()):
             return 0
 
-        elif not source_id in self.channel_counters[chanid][cnt_type].keys():
+        elif not source_id in list(self.channel_counters[chanid][cnt_type].keys()):
             return 0
 
         return self.channel_counters[chanid][cnt_type][source_id]
@@ -176,14 +177,14 @@ class Functions():
             if isinstance(accept_header, dict):
                 data['headers'] = accept_header
 
-            elif isinstance(accept_header, (str,unicode)) and accept_header!= '':
+            elif isinstance(accept_header, str) and accept_header!= '':
                 data['headers'] = {'Accept': accept_header}
 
             else:
                 data['headers'] = {}
 
             data['headers']['Keep-Alive']  = '300'
-            if not 'User-Agent'in data['headers'].keys():
+            if not 'User-Agent'in list(data['headers'].keys()):
                 data['headers']['User-Agent'] = self.config.user_agents[random.randint(0, len(self.config.user_agents)-1)]
 
             cookiejar = None if len(args) < 5 else args[4]
@@ -197,7 +198,7 @@ class Functions():
             page = fu.result
             self.max_fetches.release()
             if fu.page_status == dte.dtDataOK:
-                if (page == None) or (page =={}) or (isinstance(page, (str, unicode)) and \
+                if (page == None) or (page =={}) or (isinstance(page, str) and \
                     ((re.sub('\n','', page) == '') or (re.sub('\n','', page) =='{}'))):
                     if self.config.write_info_files:
                         self.config.infofiles.add_url_failure('No Data: %s\n' % url)
@@ -234,7 +235,7 @@ class Functions():
         if self.config.test_modus or (self.config.only_local_sourcefiles and source == self.json_id):
             try:
                 if fpath != None:
-                    fle = self.config.IO_func.open_file('%s/%s.json' % (fpath, name), 'r', 'utf-8')
+                    fle = self.config.IO_func.open_file('%s/%s.json' % (fpath, name), 'rb', 'utf-8')
                     if fle != None:
                         data = json.load(fle)
                         if source != self.json_id:
@@ -284,7 +285,7 @@ class Functions():
                 page = fu.result
                 self.max_fetches.release()
                 if (page == None) or (page =={}) or \
-                    (isinstance(page, (str, unicode)) and \
+                    (isinstance(page, str) and \
                         ((re.sub('\n','', page) == '') or (re.sub('\n','', page) =='{}'))):
                     self.update_counter('failjson', source)
                     if source != self.json_id:
@@ -425,7 +426,7 @@ class FetchURL(Thread):
         # look for the text '<meta http-equiv="Content-Type" content="application/xhtml+xml; charset=UTF-8" />'
         # in the first 600 bytes of the HTTP page
         m = re.search(r'<meta[^>]+\bcharset=["\']?([A-Za-z0-9\-]+)\b',
-            self.raw[:512].decode('ascii', 'ignore'))
+            self.raw[:512])
         if m:
             return m.group(1)
 
@@ -520,9 +521,9 @@ class DataTree(DataTreeShell, Thread):
         self.show_result = source.show_parsing
         self.fle = source.test_output
         self.simplefilter("error", category = dtDataWarning, severity = 1)
-        sys.modules['DataTreeGrab']._warnings.filterwarnings('ignore', category = dtLinkWarning, \
+        sys.modules[MODULE_NAME]._warnings.filterwarnings('ignore', category = dtLinkWarning, \
             message = 'Regex "\\\d\*/\?\(\\\d\*\)\.\*" in: .*?', caller_id = caller_id)
-        sys.modules['DataTreeGrab']._warnings.filterwarnings('ignore', category = dtLinkWarning, \
+        sys.modules[MODULE_NAME]._warnings.filterwarnings('ignore', category = dtLinkWarning, \
             message = 'Regex "\(\\\d\*\)/\.\*" in: .*?', caller_id = caller_id)
 
     def run(self):
@@ -553,7 +554,7 @@ class DataTree(DataTreeShell, Thread):
                             self.source.store_data('ttvdbid', data=self.result)
 
                         epc = []
-                        for k, v in eps[1].items():
+                        for k, v in list(eps[1].items()):
                             epc.append({'tid': tid,'sid': k, 'count': v})
 
                         self.source.store_data('episodes', data=eps[0])
@@ -570,13 +571,13 @@ class DataTree(DataTreeShell, Thread):
 
         test_items = []
         for hi in header_items:
-            if isinstance(hi, (str, unicode)):
+            if isinstance(hi, str):
                 test_items.append((hi.lower(), hi))
 
             elif isinstance(hi, (list, tuple)):
-                if len(hi) > 0 and isinstance(hi[0], (str, unicode)):
+                if len(hi) > 0 and isinstance(hi[0], str):
                     hi0 = hi[0].lower()
-                    if len(hi) > 1 and isinstance(hi[1], (str, unicode)):
+                    if len(hi) > 1 and isinstance(hi[1], str):
                         hi1 = hi[1]
 
                     else:
@@ -642,7 +643,7 @@ class DataTree(DataTreeShell, Thread):
             if fid == 101:
                 if is_data_value(0, data, str):
                     d = data[0].split('?')[0]
-                    for k, v in self.config.xml_output.logo_provider.items():
+                    for k, v in list(self.config.xml_output.logo_provider.items()):
                         if d[0:len(v)] == v:
                             return (d[len(v):], k)
 
@@ -661,8 +662,8 @@ class DataTree(DataTreeShell, Thread):
                         if not isinstance(item, dict):
                             continue
 
-                        for k, v in item.items():
-                            if k.lower() in self.config.roletrans.keys():
+                        for k, v in list(item.items()):
+                            if k.lower() in list(self.config.roletrans.keys()):
                                 role = self.config.roletrans[k.lower()]
                                 if modus == 1:
                                     for pp in v:
@@ -697,9 +698,9 @@ class DataTree(DataTreeShell, Thread):
                         if item >= len(data[1]):
                             continue
 
-                        if data[1][item].lower() in self.config.roletrans.keys():
+                        if data[1][item].lower() in list(self.config.roletrans.keys()):
                             role = self.config.roletrans[data[1][item].lower()]
-                            if isinstance(data[0][item], (str, unicode)):
+                            if isinstance(data[0][item], str):
                                 cast = split_kommastring(data[0][item])
 
                             else:
@@ -714,10 +715,10 @@ class DataTree(DataTreeShell, Thread):
                                         add_person(role, person.strip())
 
                 # The same but with a single role
-                elif isinstance(data[1], (str,unicode)) and data[1].lower() in self.config.roletrans.keys():
+                elif isinstance(data[1], str) and data[1].lower() in list(self.config.roletrans.keys()):
                     role = self.config.roletrans[data[1].lower()]
 
-                    if isinstance(data[0], (str, unicode)):
+                    if isinstance(data[0], str):
                         cast = split_kommastring(data[0])
 
                     else:
@@ -738,12 +739,12 @@ class DataTree(DataTreeShell, Thread):
                 if len(data) == 0 or data[0] == None:
                     return {}
 
-                if isinstance(data[0], (str, unicode)) and len(data[0]) > 0:
-                    tstr = unicode(data[0])
+                if isinstance(data[0], str) and len(data[0]) > 0:
+                    tstr = str(data[0])
                 elif isinstance(data[0], list) and len(data[0]) > 0:
-                    tstr = unicode(data[0][0])
+                    tstr = str(data[0][0])
                     for index in range(1, len(data[0])):
-                        tstr = u'%s %s' % (tstr, unicode(data[0][index]))
+                        tstr = '%s %s' % (tstr, str(data[0][index]))
                 else:
                     return {}
 
@@ -754,11 +755,11 @@ class DataTree(DataTreeShell, Thread):
                     cast_items = self.get_string_parts(tstr, data[1])
 
                 credits = {}
-                for crole, cast in cast_items.items():
+                for crole, cast in list(cast_items.items()):
                     if len(cast) == 0:
                         continue
 
-                    elif crole.lower() in self.config.roletrans.keys():
+                    elif crole.lower() in list(self.config.roletrans.keys()):
                         role = self.config.roletrans[crole.lower()]
                         cast = split_kommastring(cast[0])
 
@@ -790,70 +791,70 @@ class DataTree(DataTreeShell, Thread):
                                     continue
 
                                 tval = data[0][index: index + cl + 1]
-                                if tval in self.source.source_data['rating'].keys():
+                                if tval in list(self.source.source_data['rating'].keys()):
                                     code = self.source.source_data['rating'][tval]
                                     break
 
                             if code != None:
-                                if code in self.config.rating["unique_codes"].keys():
+                                if code in list(self.config.rating["unique_codes"].keys()):
                                     if unique_added:
                                         continue
 
                                     rlist.append(code)
                                     unique_added = True
 
-                                elif self.source.source_data['rating'][code] in self.config.rating["addon_codes"].keys():
+                                elif self.source.source_data['rating'][code] in list(self.config.rating["addon_codes"].keys()):
                                     rlist.append(code)
 
                             elif self.config.write_info_files:
-                                self.config.infofiles.addto_detail_list(u'new %s rating => %s' % (self.source.source, code))
+                                self.config.infofiles.addto_detail_list('new %s rating => %s' % (self.source.source, code))
 
                     else:
-                        if data[0].lower() in self.source.source_data['rating'].keys():
+                        if data[0].lower() in list(self.source.source_data['rating'].keys()):
                             v = self.source.source_data['rating'][data[0].lower()]
-                            if v in self.config.rating["unique_codes"].keys():
+                            if v in list(self.config.rating["unique_codes"].keys()):
                                 rlist.append(v)
 
-                            elif v in self.config.rating["addon_codes"].keys():
+                            elif v in list(self.config.rating["addon_codes"].keys()):
                                 rlist.append(v)
 
                         elif self.config.write_info_files:
-                            self.config.infofiles.addto_detail_list(u'new %s rating => %s' % (self.source.source, data[0]))
+                            self.config.infofiles.addto_detail_list('new %s rating => %s' % (self.source.source, data[0]))
 
                 elif is_data_value(0, data, list):
                     unique_added = False
                     for item in data[0]:
-                        if item.lower() in self.source.source_data['rating'].keys():
+                        if item.lower() in list(self.source.source_data['rating'].keys()):
                             v = self.source.source_data['rating'][item.lower()]
-                            if v in self.config.rating["unique_codes"].keys():
+                            if v in list(self.config.rating["unique_codes"].keys()):
                                 if unique_added:
                                     continue
 
                                 rlist.append(v)
                                 unique_added = True
 
-                            elif v in self.config.rating["addon_codes"].keys():
+                            elif v in list(self.config.rating["addon_codes"].keys()):
                                 rlist.append(v)
 
                         elif self.config.write_info_files:
-                            self.config.infofiles.addto_detail_list(u'new %s rating => %s' % (self.source.source, data[0]))
+                            self.config.infofiles.addto_detail_list('new %s rating => %s' % (self.source.source, data[0]))
 
                 return rlist
 
             # Check the text in data[1] for the presence of keywords to determine genre
             if fid == 105:
                 if len(data) >= 2 and isinstance(data[0], dict):
-                    for k, v in data[0].items():
+                    for k, v in list(data[0].items()):
                         kl = k.lower().strip()
                         for i in range(1, len(data)):
-                            if isinstance(data[i], (str, unicode)) and kl in data[i].lower().strip():
+                            if isinstance(data[i], str) and kl in data[i].lower().strip():
                                 return v
 
                 return default
 
             # split a genre code in a generic part of known length and a specific part
             if fid == 106:
-                if len(data) == 0 or not isinstance(data[0],(str, unicode, list)):
+                if len(data) == 0 or not isinstance(data[0],(str, list)):
                     return []
 
                 if len(data) == 1:
@@ -887,15 +888,15 @@ class DataTree(DataTreeShell, Thread):
                     data[1][index] = data[1][index].lower().strip()
 
                 for sitem in data[0]:
-                    for k, v in sitem.items():
+                    for k, v in list(sitem.items()):
                         if k.lower().strip() in data[1]:
                             continue
 
-                        if k.lower().strip() in self.config.roletrans.keys():
+                        if k.lower().strip() in list(self.config.roletrans.keys()):
                             continue
 
                         if self.config.write_info_files:
-                            self.config.infofiles.addto_detail_list(u'new %s dataitem %s => %s' %
+                            self.config.infofiles.addto_detail_list('new %s dataitem %s => %s' %
                                 (self.source.source, k, v))
 
             # Return unlisted values to infofiles in a fid 10 list set
@@ -917,15 +918,15 @@ class DataTree(DataTreeShell, Thread):
                     if data[0][index].lower() in data[2]:
                         continue
 
-                    if data[0][index].lower() in self.config.roletrans.keys():
+                    if data[0][index].lower() in list(self.config.roletrans.keys()):
                         continue
 
                     if index >= len(data[1]):
-                        self.config.infofiles.addto_detail_list(u'new %s dataitem %s' %
+                        self.config.infofiles.addto_detail_list('new %s dataitem %s' %
                             (self.source.source, data[0][index]))
 
                     else:
-                        self.config.infofiles.addto_detail_list(u'new %s dataitem %s => %s' %
+                        self.config.infofiles.addto_detail_list('new %s dataitem %s => %s' %
                             (self.source.source, data[0][index], data[1][index]))
 
             # strip data[1] from the start of data[0] if present and make sure it's unicode
@@ -998,8 +999,8 @@ class theTVDB_v1(Thread):
 
         pending_requests = {}
         def make_se(data):
-            return '(s%se%s) %r:%r' % (unicode(data['season']).rjust(2, '0'), \
-                            unicode(data['episode']).rjust(2, '0'), \
+            return '(s%se%s) %r:%r' % (str(data['season']).rjust(2, '0'), \
+                            str(data['episode']).rjust(2, '0'), \
                             data['stitle'], \
                             data['episode title'])
 
@@ -1136,14 +1137,14 @@ class theTVDB_v1(Thread):
 
                 if crequest['task'] == 'quit':
                     self.quit = True
-                    for dt in self.datatrees.values():
+                    for dt in list(self.datatrees.values()):
                         try:
                             dt.searchtree.quit = True
 
                         except:
                             continue
 
-                    for dt in self.episodetrees.values():
+                    for dt in list(self.episodetrees.values()):
                         try:
                             dt.searchtree.quit = True
 
@@ -1175,7 +1176,7 @@ class theTVDB_v1(Thread):
             self.functions.sleep()
 
         self.lastquery = self.config.in_output_tz('now')
-        if not ptype in self.datatrees.keys() or not isinstance(pdata, dict) or self.config.opt_dict['only_cache']:
+        if not ptype in list(self.datatrees.keys()) or not isinstance(pdata, dict) or self.config.opt_dict['only_cache']:
             return
 
         # A request must either contain a name or an ID
@@ -1183,10 +1184,10 @@ class theTVDB_v1(Thread):
             return
 
         if is_data_value(['ttvdbid'], pdata, (int, str)):
-            pdata['ttvdbid'] = unicode(pdata['ttvdbid'])
+            pdata['ttvdbid'] = str(pdata['ttvdbid'])
 
         if is_data_value(['name'], pdata, (int, str)):
-            pdata['name'] = unicode(pdata['name'])
+            pdata['name'] = str(pdata['name'])
 
         pdata['api-key'] = self.api_key
         # A language must be valid
@@ -1212,8 +1213,8 @@ class theTVDB_v1(Thread):
         # Get the page
         url = dtree.get_url(pdata, False)
         if self.print_searchtree:
-            print '(url, encoding, accept_header, url_data, is_json)'
-            print url
+            print('(url, encoding, accept_header, url_data, is_json)')
+            print(url)
 
         self.functions.update_counter('detail', self.proc_id, chanid)
         pstate, page, pcode = self.functions.get_page(*url)
@@ -1272,7 +1273,7 @@ class theTVDB_v1(Thread):
             if sid == -1 or eid == -1:
                 continue
 
-            if sid in sep_cnt.keys():
+            if sid in list(sep_cnt.keys()):
                 sep_cnt[sid] += 1
 
             else:
@@ -1395,7 +1396,7 @@ class theTVDB_v1(Thread):
                 if rtid == 0:
                     continue
 
-                if not rtid in tids.keys():
+                if not rtid in list(tids.keys()):
                     tids[rtid] = 1
 
                 else:
@@ -1433,7 +1434,7 @@ class theTVDB_v1(Thread):
             if tid == 0:
                 return {'state': 0, 'tid': None}
 
-            if tid in self.pending_tids.keys():
+            if tid in list(self.pending_tids.keys()):
                 # There already is a lookup underway
                 return {'state': 3, 'tid': tid}
 
@@ -1455,7 +1456,7 @@ class theTVDB_v1(Thread):
                 if new_fetch == False:
                     return {'state': 0, 'tid': None}
 
-            elif tid in self.pending_tids.keys():
+            elif tid in list(self.pending_tids.keys()):
                 # There already is a lookup underway
                 return {'state': 3, 'tid': tid}
 
@@ -1498,7 +1499,7 @@ class theTVDB_v1(Thread):
                 self.queried_titles[series_name.lower()] = 0
                 return {'state': 0, 'tid': None}
 
-            if tid in self.pending_tids.keys():
+            if tid in list(self.pending_tids.keys()):
                 # There already is a lookup underway
                 return {'state': 3, 'tid': tid}
 
@@ -1516,7 +1517,7 @@ class theTVDB_v1(Thread):
                             if not aname in aliasses:
                                 aliasses.append(aname)
 
-                            if aname not in self.queried_titles.keys():
+                            if aname not in list(self.queried_titles.keys()):
                                 self.queried_titles[aname] = data_value([index, 'tid'], data, int, 0)
 
                 self.store_data('alias',
@@ -1611,7 +1612,7 @@ class theTVDB_v1(Thread):
                     ep = self.process_data(data, tid, 'en')
                     eps.extend(ep[0])
                     epc = []
-                    for k, v in ep[1].items():
+                    for k, v in list(ep[1].items()):
                         epc.append({'tid': tid,'sid': k, 'count': v})
 
                     self.store_data('epcount', data=epc)
@@ -1627,7 +1628,7 @@ class theTVDB_v1(Thread):
 
     def get_season_episode(self, parent = None, data = None, tid = None):
         def prepare_return(rdata, tid, lang):
-            tepid = rdata.keys()[0]
+            tepid = list(rdata.keys())[0]
             ept = data.get_value('episode title')
             if ept in ('', None):
                 ept = data_value([tepid,'episode title', lang], rdata, str)
@@ -1691,11 +1692,11 @@ class theTVDB_v1(Thread):
             if eps == -1:
                 return {'state': -1, 'tid': -1, 'data': None}
 
-            if tid in eps.keys() and len(eps[tid]) == 1:
+            if tid in list(eps.keys()) and len(eps[tid]) == 1:
                 # We only got one match so we return it
                 self.config.log(self.config.text('ttvdb', 14,
                     (data.get_value('name'), data.get_value('episode title'))), 24)
-                return prepare_return(eps.values()[0], tid, lang)
+                return prepare_return(list(eps.values())[0], tid, lang)
 
         # Next we just look for a matching subtitle (if set)
         if data.is_set('episode title') and eptitle != '':
@@ -1703,11 +1704,11 @@ class theTVDB_v1(Thread):
             if eid == -1:
                 return {'state': -1, 'tid': -1, 'data': None}
 
-            if tid in eid.keys() and len(eid[tid]) == 1:
+            if tid in list(eid.keys()) and len(eid[tid]) == 1:
                 # We only got one match so we return it
                 self.config.log(self.config.text('ttvdb', 14,
                     (data.get_value('name'), data.get_value('episode title'))), 24)
-                return prepare_return(eid.values()[0], tid, lang)
+                return prepare_return(list(eid.values())[0], tid, lang)
 
         # What can we find on season/episode
         qdict = {'tid': tid}
@@ -1721,11 +1722,11 @@ class theTVDB_v1(Thread):
         if eps == -1:
             return {'state': -1, 'tid': -1, 'data': None}
 
-        if tid in eps.keys() and len(eps[tid]) == 1:
+        if tid in list(eps.keys()) and len(eps[tid]) == 1:
             # We only got one match so we return it
             self.config.log(self.config.text('ttvdb', 14,
                 (data.get_value('name'), data.get_value('episode title'))), 24)
-            return prepare_return(eps.values()[0], tid, lang)
+            return prepare_return(list(eps.values())[0], tid, lang)
 
         # And on absolute episode numbers
         if data.is_set('episode'):
@@ -1733,20 +1734,20 @@ class theTVDB_v1(Thread):
             if absep == -1:
                 return {'state': -1, 'tid': -1, 'data': None}
 
-            if tid in absep.keys() and len(absep[tid]) == 1:
+            if tid in list(absep.keys()) and len(absep[tid]) == 1:
                 # We only got one match so we return it
                 self.config.log(self.config.text('ttvdb', 14,
                     (data.get_value('name'), data.get_value('episode title'))), 24)
-                return prepare_return(absep.values()[0], tid, lang)
+                return prepare_return(list(absep.values())[0], tid, lang)
 
-        if data.is_set('episode title') and eptitle != '' and  tid in eps.keys() and len(eps[tid]) > 0:
+        if data.is_set('episode title') and eptitle != '' and  tid in list(eps.keys()) and len(eps[tid]) > 0:
             # Now we get a list of episodes matching what we already know
             # and compare with confusing characters removed
             subt = re.sub('[-,. ]', '', self.functions.remove_accents(data.get_value('episode title')).lower())
             ep_dict = {}
             ep_list = []
-            for ep in eps[tid].values():
-                for l, ept in ep['episode title'].items():
+            for ep in list(eps[tid].values()):
+                for l, ept in list(ep['episode title'].items()):
                     if ept == '':
                         continue
 
@@ -1778,7 +1779,7 @@ class theTVDB_v1(Thread):
             else:
                 text = tcode % args
 
-            print text.encode(self.local_encoding, 'replace')
+            print((text.encode(self.local_encoding, 'replace')))
 
         if self.config.opt_dict['disable_ttvdb']:
             return(-1)
@@ -1816,9 +1817,9 @@ class theTVDB_v1(Thread):
                 elangs.append(data_value('lang', ep, str))
 
             elangs = list(set(elangs))
-            langlist = u''
+            langlist = ''
             for l in elangs:
-                langlist = u'%s, %s' % (langlist, l)
+                langlist = '%s, %s' % (langlist, l)
             print_text(1, series_name,  tid[0]['tid'], tid[0]['name'])
             print_text(2, langlist[2:])
             old_tid = int(tid[0]['tid'])
@@ -1842,7 +1843,7 @@ class theTVDB_v1(Thread):
 
             while True:
                 print_text(15)
-                ans = raw_input()
+                ans = input()
                 if ans in ('y', 'Y'):
                     tid = data[0]
                     break
@@ -1872,7 +1873,7 @@ class theTVDB_v1(Thread):
                 while True:
                     try:
                         print_text(6)
-                        ans = raw_input()
+                        ans = input()
                         selected_id = int(ans)-1
                         if 0 <= selected_id < len(series_list):
                             break
@@ -2073,7 +2074,7 @@ class FetchData(URLtypes, Thread):
                         return 0, pre_merge
 
                 # Check if all channels are ready
-                for channel in self.config.channels.values():
+                for channel in list(self.config.channels.values()):
                     if channel.is_alive() and not channel.ready:
                         return 0, pre_merge
 
@@ -2184,7 +2185,7 @@ class FetchData(URLtypes, Thread):
                     if detailed_program == None:
                         for ds in range(detail_idx + 1, len(self.config.detail_sources)):
                             ds_id = self.config.detail_sources[ds]
-                            if self.config.channelsource[ds_id].is_alive() and ds_id in detail_ids.keys():
+                            if self.config.channelsource[ds_id].is_alive() and ds_id in list(detail_ids.keys()):
                                 self.config.queues['source'][ds_id].put(queue_val)
                                 self.functions.update_counter('queue', ds_id,  parent.chanid)
                                 break
@@ -2220,7 +2221,7 @@ class FetchData(URLtypes, Thread):
             self.ready = True
 
         except:
-            if self.proc_id in detail_ids.keys() and 'detail_url' in detail_ids[self.proc_id].keys():
+            if self.proc_id in list(detail_ids.keys()) and 'detail_url' in list(detail_ids[self.proc_id].keys()):
                 self.config.queues['log'].put(
                     {'fatal': [self.config.text('IO', 15, (detail_ids[self.proc_id]['detail_url'])), \
                     traceback.format_exc(), '\n'], 'name': self.source})
@@ -2238,7 +2239,7 @@ class FetchData(URLtypes, Thread):
         """Get the list of requested channels for this source from the channel configurations"""
         def check_for_channelid(cid, chan = None, is_child = False):
             if chan == None:
-                if cid in self.config.channels.keys():
+                if cid in list(self.config.channels.keys()):
                     chan = self.config.channels[cid]
 
                 else:
@@ -2258,7 +2259,7 @@ class FetchData(URLtypes, Thread):
                         chan.is_child = True
 
                     self.channels[cid] = channelid
-                    if not channelid in self.all_chanids.keys():
+                    if not channelid in list(self.all_chanids.keys()):
                         self.all_chanids[channelid] = [cid]
 
                     elif not cid in self.all_chanids[channelid]:
@@ -2275,18 +2276,18 @@ class FetchData(URLtypes, Thread):
             for ptype in self.source_data["data_defs"]:
                 self.source_data[ptype]['url'] = self.source_data[ptype]['alt-url']
 
-        for chanid, channel in self.config.channels.items():
+        for chanid, channel in list(self.config.channels.items()):
             # Is the channel active and this source for the channel not disabled
             if channel.active:
                 # Is there a channelid for this channel
                 check_for_channelid(chanid, channel)
                 # Does the channel have child channels
-                if chanid in self.config.combined_channels.keys():
+                if chanid in list(self.config.combined_channels.keys()):
                     # Then see if any of the childs has a sourceid for this source and does not have this source disabled
                     for c in self.config.combined_channels[chanid]:
                         check_for_channelid(c['chanid'], is_child = True)
 
-        for channelid, chanidlist in self.all_chanids.items():
+        for channelid, chanidlist in list(self.all_chanids.items()):
             if len(chanidlist) == 1:
                 self.chanids[channelid] = chanidlist[0]
 
@@ -2300,7 +2301,7 @@ class FetchData(URLtypes, Thread):
                     self.chanids[channelid] = chanidlist[0]
 
         # To limit the output to the requested channels
-        if "channelid" in self.source_data["base"]["value-filters"].keys() \
+        if "channelid" in list(self.source_data["base"]["value-filters"].keys()) \
           and isinstance(self.source_data["base"]["value-filters"]["channelid"], list):
             self.source_data["base"]["value-filters"]["channelid"].extend(list(self.chanids.keys()))
             self.source_data["base"]["value-filters"]["channelid"].extend(list(self.source_data['alt-channels'].keys()))
@@ -2317,17 +2318,17 @@ class FetchData(URLtypes, Thread):
             for ptype in self.source_data["data_defs"]:
                 if self.sourcedbdata['use_alt_url']:
                     self.source_data[ptype]['url'] = self.source_data[ptype]['alt-url']
-                    if ptype in self.datatrees.keys():
+                    if ptype in list(self.datatrees.keys()):
                         self.datatrees[ptype].data_def['url'] = self.source_data[ptype]['url']
 
                 else:
                     self.source_data[ptype]['url'] = self.source_data[ptype]['normal-url']
-                    if ptype in self.datatrees.keys():
+                    if ptype in list(self.datatrees.keys()):
                         self.datatrees[ptype].data_def['url'] = self.source_data[ptype]['url']
 
         def update_counter(ptype, pstatus = "fail", tekst = None):
             if ptype in self.config.data_def_names["detail"]:
-                c = pdata['channel'] if ('channel' in pdata.keys()) else None
+                c = pdata['channel'] if ('channel' in list(pdata.keys())) else None
                 if pstatus == "fetched":
                     self.functions.update_counter('detail', self.proc_id, c)
 
@@ -2354,7 +2355,7 @@ class FetchData(URLtypes, Thread):
                     u = url[0]
                     if len(url[3]) > 0:
                         u += '?'
-                        for k, v in url[3].items():
+                        for k, v in list(url[3].items()):
                             u += '%s=%s&' % (k, v)
 
                         u = u[:-1]
@@ -2402,17 +2403,17 @@ class FetchData(URLtypes, Thread):
 
                 if self.print_roottree:
                     if self.roottree_output == sys.stdout:
-                        self.roottree_output.write(u'pdata = %s' % pdata)
+                        self.roottree_output.write('pdata = %s' % pdata)
                         prtdata = ('url', 'encoding', 'accept_header', 'url_data', 'is_json', 'cookiejar')
                         for index in range(len(url)):
                             self.roottree_output.write(('%s = %s'%
                                 (prtdata[index], url[index])).encode('utf-8', 'replace'))
 
                     else:
-                        self.roottree_output.write(u'pdata = %s\n' % pdata)
+                        self.roottree_output.write('pdata = %s\n' % pdata)
                         prtdata = ('url', 'encoding', 'accept_header', 'url_data', 'is_json', 'cookiejar')
                         for index in range(len(url)):
-                            self.roottree_output.write((u'%s = %s\n'% (prtdata[index], url[index])))
+                            self.roottree_output.write(('%s = %s\n'% (prtdata[index], url[index])))
 
                 update_counter(ptype, "fetched")
                 # Get the Page
@@ -2429,7 +2430,7 @@ class FetchData(URLtypes, Thread):
                 self.page_status = dte.dtDataOK
 
             if self.page_status == dte.dtEmpty:
-                update_counter(ptype, "empty",u'No Data.')
+                update_counter(ptype, "empty",'No Data.')
                 return
 
             if self.page_status == dte.dtDataOK:
@@ -2440,7 +2441,7 @@ class FetchData(URLtypes, Thread):
 
             if self.page_status != dte.dtDataOK:
                 if self.page_status in (dte.dtEmpty, dte.dtNoData):
-                    update_counter(ptype, "empty",u'No Data.')
+                    update_counter(ptype, "empty",'No Data.')
 
                 else:
                     if incomplete:
@@ -2449,7 +2450,7 @@ class FetchData(URLtypes, Thread):
                     update_counter(ptype)
                     if self.print_roottree:
                         self.datatrees[ptype].print_datatree(fobj = self.roottree_output, from_start_node = False)
-                        self.roottree_output.write(u'Data Error = %s: %s' %
+                        self.roottree_output.write('Data Error = %s: %s' %
                             (self.page_status, dte.errortext(self.page_status)))
 
                 return
@@ -2512,24 +2513,24 @@ class FetchData(URLtypes, Thread):
             if self.show_result:
                 if self.raw_output == sys.stdout:
                     for p in self.rawdata:
-                        if isinstance(p[0], (str, unicode)):
+                        if isinstance(p[0], str):
                             self.raw_output.write(p[0].encode('utf-8', 'replace'))
                         else:
                             self.raw_output.write(p[0])
                         for v in range(1,len(p)):
-                            if isinstance(p[v], (str, unicode)):
+                            if isinstance(p[v], str):
                                 self.raw_output.write('    "%s"' % p[v].encode('utf-8', 'replace'))
                             else:
                                 self.raw_output.write('    %s' % p[v])
 
                 else:
                     for p in self.rawdata:
-                        self.raw_output.write(u'%s\n' % p[0])
+                        self.raw_output.write('%s\n' % p[0])
                         for v in range(1,len(p)):
-                            if isinstance(p[v], (str, unicode)):
-                                self.raw_output.write(u'    "%s"\n' % p[v])
+                            if isinstance(p[v], str):
+                                self.raw_output.write('    "%s"\n' % p[v])
                             else:
-                                self.raw_output.write(u'    %s\n' % p[v])
+                                self.raw_output.write('    %s\n' % p[v])
 
             # we extract a channel list if available
             if not self.config.test_modus and ptype == 'base' and \
@@ -2597,26 +2598,26 @@ class FetchData(URLtypes, Thread):
         if isinstance(channel_list, list):
             empty_channels = copy(self.source_data['empty_channels'])
             chanids = {}
-            for chanid, channel in self.config.channels.items():
+            for chanid, channel in list(self.config.channels.items()):
                 channelid = channel.get_channelid(self.proc_id)
                 if channelid != '':
                     chanids[channelid] = chanid
 
             channelids = {}
-            for chanid, channelid in self.config.source_channels[self.proc_id].items():
+            for chanid, channelid in list(self.config.source_channels[self.proc_id].items()):
                 channelids[channelid] = chanid
 
             for channel in channel_list:
                 # link the data to the right variable, doing any defined adjustments
-                if "inactive_channel" in channel.keys() and channel["inactive_channel"]:
+                if "inactive_channel" in list(channel.keys()) and channel["inactive_channel"]:
                     continue
 
-                if "channelid" in channel.keys():
-                    channelid = unicode(channel["channelid"])
-                    if channelid in self.source_data['alt-channels'].keys():
+                if "channelid" in list(channel.keys()):
+                    channelid = str(channel["channelid"])
+                    if channelid in list(self.source_data['alt-channels'].keys()):
                         channel['channelid'] = self.source_data['alt-channels'][channelid][0]
                         channel['name'] = self.source_data['alt-channels'][channelid][1]
-                        channelid = unicode(channel['channelid'])
+                        channelid = str(channel['channelid'])
 
                     self.all_channels[channelid] = channel
                     if self.show_result:
@@ -2624,7 +2625,7 @@ class FetchData(URLtypes, Thread):
                             self.data_output.write('%s: %s' % (channelid, channel['name']))
                             if channelid in empty_channels:
                                 empty_channels.remove(channelid)
-                                if channelid in channelids.keys():
+                                if channelid in list(channelids.keys()):
                                     self.data_output.write('        Marked as empty but still present in "sourcechannels" as "%s"' % channelids[channelid])
                                     self.lineup_changes.append('Empty channelID "%s" on %s still present in "sourcechannels" as "%s"\n' \
                                         % (channelid, self.source, channelids[channelid]))
@@ -2632,15 +2633,15 @@ class FetchData(URLtypes, Thread):
                                 else:
                                     self.data_output.write('        Marked as empty')
 
-                            elif channelid in chanids.keys():
+                            elif channelid in list(chanids.keys()):
                                 self.data_output.write('        chanid: %s' % (chanids[channelid]))
                                 del chanids[channelid]
 
                             else:
                                 self.data_output.write('        Without a chanid set in "source_channels"')
 
-                            for k, v in channel.items():
-                                if isinstance(v, (str, unicode)):
+                            for k, v in list(channel.items()):
+                                if isinstance(v, str):
                                     self.data_output.write('        %s: "%s"'.encode('utf-8', 'replace') % (k, v))
                                 else:
                                     self.data_output.write('        %s: %s' % (k, v))
@@ -2649,7 +2650,7 @@ class FetchData(URLtypes, Thread):
                             self.data_output.write('%s: %s\n' % (channelid, channel['name']))
                             if channelid in empty_channels:
                                 empty_channels.remove(channelid)
-                                if channelid in channelids.keys():
+                                if channelid in list(channelids.keys()):
                                     self.data_output.write('        Marked as empty but still present in "sourcechannels" as "%s"\n' % channelids[channelid])
                                     self.lineup_changes.append('Empty channelID "%s" on %s still present in "sourcechannels" as "%s"\n' \
                                         % (channelid, self.source, channelids[channelid]))
@@ -2657,21 +2658,21 @@ class FetchData(URLtypes, Thread):
                                 else:
                                     self.data_output.write('        Marked as empty\n')
 
-                            elif channelid in chanids.keys():
+                            elif channelid in list(chanids.keys()):
                                 self.data_output.write('        chanid: %s\n' % (chanids[channelid]))
                                 del chanids[channelid]
 
                             else:
                                 self.data_output.write('        Without a chanid set in "source_channels"\n')
 
-                            for k, v in channel.items():
-                                if isinstance(v, (str, unicode)):
+                            for k, v in list(channel.items()):
+                                if isinstance(v, str):
                                     self.data_output.write('        %s: "%s"\n' % (k, v))
                                 else:
                                     self.data_output.write('        %s: %s\n' % (k, v))
 
                     elif self.config.write_info_files:
-                        if channelid in self.source_data['empty_channels'] and channelid in channelids.keys():
+                        if channelid in self.source_data['empty_channels'] and channelid in list(channelids.keys()):
                             self.lineup_changes.append('Empty channelID "%s" on %s still present in "sourcechannels" as "%s"\n' \
                                 % (channelid, self.source, channelids[channelid]))
 
@@ -2785,7 +2786,7 @@ class FetchData(URLtypes, Thread):
 
         def do_final_processing(channelid):
             chanid = self.chanids[channelid]
-            if not chanid in self.config.channelprogram_rename.keys():
+            if not chanid in list(self.config.channelprogram_rename.keys()):
                 self.config.channelprogram_rename[chanid] = {}
 
             good_programs = []
@@ -2830,7 +2831,7 @@ class FetchData(URLtypes, Thread):
 
                         elif detail_url != None:
                             url_list.append(detail_url)
-                            logstring = u' %s: %s' % (p['start-time'].strftime('%d %b %H:%M'), p['name'])
+                            logstring = ' %s: %s' % (p['start-time'].strftime('%d %b %H:%M'), p['name'])
 
                             sources = {self.proc_id: {
                                     'chanid': chanid,
@@ -2854,32 +2855,32 @@ class FetchData(URLtypes, Thread):
 
                 for index in range(plen):
                     p = self.program_data[channelid][index]
-                    if not 'name' in p.keys() or not isinstance(p['name'], (unicode, str)) or p['name'] == u'':
+                    if not 'name' in list(p.keys()) or not isinstance(p['name'], str) or p['name'] == '':
                         continue
 
-                    p['name'] = unicode(p['name'])
+                    p['name'] = str(p['name'])
                     pname = p['name'].lower().strip()
-                    if pname in self.config.channelprogram_rename[chanid].keys():
+                    if pname in list(self.config.channelprogram_rename[chanid].keys()):
                         p['name'] = self.config.channelprogram_rename[chanid][pname]
 
                     if index < plen - 1:
                         p2 = self.program_data[channelid][index + 1]
-                        if 'stop from length' in p.keys() and p['stop from length'] and \
-                            not 'last of the page' in p.keys():
+                        if 'stop from length' in list(p.keys()) and p['stop from length'] and \
+                            not 'last of the page' in list(p.keys()):
                             if p['stop-time'] > p2['start-time']:
                                 p['stop-time'] = copy(p2['start-time'])
 
-                        if not 'stop-time' in p.keys() or not isinstance(p['stop-time'], datetime.datetime):
-                            if 'last of the page' in p.keys() and not \
+                        if not 'stop-time' in list(p.keys()) or not isinstance(p['stop-time'], datetime.datetime):
+                            if 'last of the page' in list(p.keys()) and not \
                                 ('length' in self.update_base or 'stop-time' in self.update_base):
                                 continue
 
                             p['stop-time'] = copy(p2['start-time'])
 
-                        if not 'length' in p.keys() or not isinstance(p['length'], datetime.timedelta):
+                        if not 'length' in list(p.keys()) or not isinstance(p['length'], datetime.timedelta):
                             p['length'] = p['stop-time'] - p['start-time']
 
-                        if 'last of the page' in p.keys():
+                        if 'last of the page' in list(p.keys()):
                             # Check for a program split by the day border
                             if p[ 'name'].lower() == p2[ 'name'].lower() and p['stop-time'] >= p2['start-time'] \
                               and ((not 'episode title' in p and not 'episode title' in p2) \
@@ -2888,9 +2889,9 @@ class FetchData(URLtypes, Thread):
                                     p2['start-time'] = copy(p['start-time'])
                                     continue
 
-                    elif index == plen - 1 and'stop-time' in p.keys() and \
+                    elif index == plen - 1 and'stop-time' in list(p.keys()) and \
                       isinstance(p['stop-time'], datetime.datetime):
-                        if not 'length' in p.keys() or not isinstance(p['length'], datetime.timedelta):
+                        if not 'length' in list(p.keys()) or not isinstance(p['length'], datetime.timedelta):
                             p['length'] = p['stop-time'] - p['start-time']
 
                         while p['length'] > tdd:
@@ -2919,7 +2920,7 @@ class FetchData(URLtypes, Thread):
             cache_programs = self.get_cache_return('sourceprograms',
                             sourceid = self.proc_id,
                             channelid = channelid,
-                            scandate = range( first_day - 1 , min(max_days, last_day) +1))
+                            scandate = list(range( first_day - 1 , min(max_days, last_day) +1)))
             if cache_programs == -1:
                 return -1
 
@@ -2950,7 +2951,7 @@ class FetchData(URLtypes, Thread):
                         g = '' if not 'genre' in p or p['genre'] == None else p['genre']
                         sg = '' if not 'subgenre' in p or p['subgenre'] == None else p['subgenre']
                         p['genres'] = (g, sg)
-                        if 'group' in p.keys() and not p['group'] in (None, ''):
+                        if 'group' in list(p.keys()) and not p['group'] in (None, ''):
                             self.groupitems[channelid] += 1
 
                         if p['stop-time'] <= fetch_start or p['start-time'] >= fetch_end:
@@ -3015,7 +3016,7 @@ class FetchData(URLtypes, Thread):
                     p['channel']  = self.config.channels[chanid].chan_name
                     p['length'] = p['stop-time'] - p['start-time']
                     p['from cache'] = True
-                    if 'group' in p.keys() and not p['group'] in (None, ''):
+                    if 'group' in list(p.keys()) and not p['group'] in (None, ''):
                         self.groupitems[channelid] += 1
 
                     good_programs.append(p)
@@ -3026,7 +3027,7 @@ class FetchData(URLtypes, Thread):
                 if self.groupitems[channelid] > 0:
                     group_start = False
                     for p in good_programs[:]:
-                        if 'group' in p.keys():
+                        if 'group' in list(p.keys()):
                             # Collecting the group
                             if not group_start:
                                 group = []
@@ -3096,12 +3097,12 @@ class FetchData(URLtypes, Thread):
             self.set_loaded('channel')
             return
 
-        full_range = range( first_day, last_day)
-        site_range = range( first_day, min(max_days, last_day))
+        full_range = list(range( first_day, last_day))
+        site_range = list(range( first_day, min(max_days, last_day)))
         step_start = first_day
         offset_step = 1
         fetch_range = site_range
-        for channelid, chanid in self.chanids.items():
+        for channelid, chanid in list(self.chanids.items()):
             self.program_data[channelid] = []
             cached[channelid] = self.get_cache_return('fetcheddays',
                             sourceid = self.proc_id,
@@ -3132,11 +3133,11 @@ class FetchData(URLtypes, Thread):
                     return -1
 
                 for chan in fgroup[channelgrp][:]:
-                    if not chan['channelid'] in self.chanids.keys():
+                    if not chan['channelid'] in list(self.chanids.keys()):
                         fgroup[channelgrp].remove(chan)
 
         # Check which days and up to what date are available in the cache
-        for channelid, chanid in self.chanids.items():
+        for channelid, chanid in list(self.chanids.items()):
             self.program_data[channelid] = []
             cached[channelid] = self.get_cache_return('fetcheddays',
                             sourceid = self.proc_id,
@@ -3158,7 +3159,7 @@ class FetchData(URLtypes, Thread):
         max_failure_count = 4
         # Just process the days retrieved from the cache
         if self.config.opt_dict['only_cache']:
-            for channelid, chanid in self.chanids.items():
+            for channelid, chanid in list(self.chanids.items()):
                 if do_final_processing(channelid) == -1:
                     return -1
 
@@ -3168,7 +3169,7 @@ class FetchData(URLtypes, Thread):
             # vrt.be, tvgids.tv
             if self.getsonechannel(url_type):
                 fetch_range = {}
-                for channelid, chanid in self.chanids.items():
+                for channelid, chanid in list(self.chanids.items()):
                     fetch_range[channelid] = []
                     for day in site_range:
                         if day == 0 or cached[channelid][day] != True:
@@ -3180,7 +3181,7 @@ class FetchData(URLtypes, Thread):
             elif self.getsallchannels(url_type):
                 fetch_range = []
                 for day in site_range:
-                    for channelid, chanid in self.chanids.items():
+                    for channelid, chanid in list(self.chanids.items()):
                         if day == 0 or cached[channelid][day] != True:
                             fetch_range.append(day)
                             break
@@ -3205,7 +3206,7 @@ class FetchData(URLtypes, Thread):
         elif self.getsalldays(url_type):
             if self.getsonechannel(url_type):
                 fetch_range = {}
-                for channelid, chanid in self.chanids.items():
+                for channelid, chanid in list(self.chanids.items()):
                     fetch_range[channelid] = ['all']
 
             # rtl.nl
@@ -3223,7 +3224,7 @@ class FetchData(URLtypes, Thread):
                 step_start = get_weekstart(self.current_ordinal, first_day, sow)
                 if self.getsonechannel(url_type):
                     fetch_range = {}
-                    for channelid, chanid in self.chanids.items():
+                    for channelid, chanid in list(self.chanids.items()):
                         fetch_range[channelid] = []
                         for daygroup in range(step_start, last_day, offset_step):
                             for day in site_range:
@@ -3235,7 +3236,7 @@ class FetchData(URLtypes, Thread):
                     fetch_range = []
                     for daygroup in range(step_start, last_day, offset_step):
                         for day in site_range:
-                            for channelid, chanid in self.chanids.items():
+                            for channelid, chanid in list(self.chanids.items()):
                                 if day in site_range and (day == 0 or cached[channelid][day] != True):
                                     fetch_range.append(daygroup)
                                     break
@@ -3254,7 +3255,7 @@ class FetchData(URLtypes, Thread):
                 # nieuwsblad.be
                 if self.getsonechannel(url_type):
                     fetch_range = {}
-                    for channelid, chanid in self.chanids.items():
+                    for channelid, chanid in list(self.chanids.items()):
                         fetch_range[channelid] = []
                         start = None
                         for day in site_range:
@@ -3267,7 +3268,7 @@ class FetchData(URLtypes, Thread):
                     fetch_range = []
                     start = None
                     for day in site_range:
-                        for channelid, chanid in self.chanids.items():
+                        for channelid, chanid in list(self.chanids.items()):
                             if day == 0 or cached[channelid][day] != True:
                                 if start == None or day > start + offset_step:
                                     fetch_range.append(day)
@@ -3286,7 +3287,7 @@ class FetchData(URLtypes, Thread):
             self.item_count = self.source_data['base']['default-item-count']
             if self.getsonechannel(url_type):
                 fetch_range = {}
-                for channelid, chanid in self.chanids.items():
+                for channelid, chanid in list(self.chanids.items()):
                     fetch_range[channelid] = []
                     start = None
                     days = 0
@@ -3309,7 +3310,7 @@ class FetchData(URLtypes, Thread):
                 start = None
                 days = 0
                 for day in site_range:
-                    for channelid, chanid in self.chanids.items():
+                    for channelid, chanid in list(self.chanids.items()):
                         if day == 0 or cached[channelid][day] != True:
                             days += 1
                             if start == None:
@@ -3339,12 +3340,12 @@ class FetchData(URLtypes, Thread):
                 maxoffset = {}
                 for retry in (0, 1):
                     channel_cnt = 0
-                    for channelid, chanid in self.chanids.items():
+                    for channelid, chanid in list(self.chanids.items()):
                         channel_cnt += 1
                         failure_count = 0
                         empty_count = 0
                         fetch_count = 0
-                        if not channelid in maxoffset.keys():
+                        if not channelid in list(maxoffset.keys()):
                             maxoffset[channelid] = None
 
                         if self.quit:
@@ -3419,7 +3420,7 @@ class FetchData(URLtypes, Thread):
                                     base_count += 1
                                     fetch_count += 1
 
-                                self.set_loaded('day', channelid, range(fset[0], fset[0] + fset[1]))
+                                self.set_loaded('day', channelid, list(range(fset[0], fset[0] + fset[1])))
 
                         else:
                             page_idx = 0
@@ -3484,7 +3485,7 @@ class FetchData(URLtypes, Thread):
                                     self.set_loaded('day', channelid)
 
                                 elif self.getsdaygroup(url_type):
-                                    self.set_loaded('day', channelid, range(offset, offset + offset_step))
+                                    self.set_loaded('day', channelid, list(range(offset, offset + offset_step)))
                                     self.set_loaded('page', channelid, offset)
 
 
@@ -3521,7 +3522,7 @@ class FetchData(URLtypes, Thread):
 
                             first_fetch = False
                             log_fetch()
-                            self.get_page_data('base', channels = self.chanids.keys(),
+                            self.get_page_data('base', channels = list(self.chanids.keys()),
                                                         offset = offset,
                                                         start = first_day,
                                                         end = min(max_days, last_day),
@@ -3548,7 +3549,7 @@ class FetchData(URLtypes, Thread):
                                 self.parse_basepage(strdata, offset = offset)
 
                     if failure_count == 0 or retry == 1:
-                        for channelid, chanid in self.chanids.items():
+                        for channelid, chanid in list(self.chanids.items()):
                             if do_final_processing(channelid) == -1:
                                 return -1
 
@@ -3622,7 +3623,7 @@ class FetchData(URLtypes, Thread):
 
 
                     if failure_count == 0 or retry == 1:
-                        for channelid, chanid in self.chanids.items():
+                        for channelid, chanid in list(self.chanids.items()):
                             if do_final_processing(channelid) == -1:
                                 return -1
 
@@ -3643,31 +3644,31 @@ class FetchData(URLtypes, Thread):
         if isinstance(fdata, list):
             last_stop = None
             for program in fdata:
-                if 'channelid' in program.keys():
-                    channelid = unicode(program['channelid'])
-                    if channelid in self.source_data['alt-channels'].keys():
+                if 'channelid' in list(program.keys()):
+                    channelid = str(program['channelid'])
+                    if channelid in list(self.source_data['alt-channels'].keys()):
                         program['channelid'] = self.source_data['alt-channels'][channelid][0]
-                        channelid = unicode(program['channelid'])
+                        channelid = str(program['channelid'])
 
-                elif 'channelid' in subset.keys():
+                elif 'channelid' in list(subset.keys()):
                     channelid = subset['channelid']
 
                 else:
                     continue
 
                 # it's not requested
-                if not channelid in self.chanids.keys():
+                if not channelid in list(self.chanids.keys()):
                     continue
 
                 # A list of processed channels to send back
                 if not channelid in channelids:
                     channelids.append(channelid)
 
-                if not channelid in last_start.keys():
+                if not channelid in list(last_start.keys()):
                     last_start[channelid] = None
 
                 chanid = self.chanids[channelid]
-                if not 'prog_ID' in program.keys():
+                if not 'prog_ID' in list(program.keys()):
                     program['prog_ID'] = ''
 
                 tdict = {}
@@ -3678,7 +3679,7 @@ class FetchData(URLtypes, Thread):
                 tdict['prog_ID'] = ''
                 tdict['channel']  = self.config.channels[chanid].chan_name
                 tdict['from cache'] = False
-                if  not 'name' in program.keys() or program['name'] == None or program['name'] == '':
+                if  not 'name' in list(program.keys()) or program['name'] == None or program['name'] == '':
                     # Give it the Unknown Program Title Name, to mark it as a groupslot.
                     program['name'] = self.config.unknown_program_title
                     tdict['is_gap'] = True
@@ -3686,7 +3687,7 @@ class FetchData(URLtypes, Thread):
                         #~ (program['prog_ID'], self.config.channels[chanid].chan_descr, self.source)))
                     #~ continue
 
-                if 'stop-time' in program.keys() and isinstance(program['stop-time'], datetime.datetime):
+                if 'stop-time' in list(program.keys()) and isinstance(program['stop-time'], datetime.datetime):
                     tdict['stop-time'] = program['stop-time']
                 elif "alt-stop-time" in program and isinstance(program["alt-stop-time"], datetime.datetime):
                     tdict['stop-time'] = program["alt-stop-time"]
@@ -3696,11 +3697,11 @@ class FetchData(URLtypes, Thread):
                     plength = program["length"]
                     tdict["length"] = plength
 
-                if 'start-time' in program.keys() and isinstance(program['start-time'], datetime.datetime):
+                if 'start-time' in list(program.keys()) and isinstance(program['start-time'], datetime.datetime):
                     tdict['start-time'] = program['start-time']
                 elif "alt-start-time" in program and isinstance(program["alt-start-time"], datetime.datetime):
                     tdict['start-time'] = program["alt-start-time"]
-                elif plength != None and 'stop-time' in tdict.keys():
+                elif plength != None and 'stop-time' in list(tdict.keys()):
                     tdict['start-time'] = tdict['stop-time'] - plength
                     tdict['start from length'] = True
                 elif self.source_data["base"]["data-format"] == "text/html" and \
@@ -3712,7 +3713,7 @@ class FetchData(URLtypes, Thread):
                     continue
 
                 if plength != None:
-                    if not 'stop-time' in tdict.keys():
+                    if not 'stop-time' in list(tdict.keys()):
                         tdict['stop-time'] = tdict['start-time'] + plength
                         tdict['stop from length'] = True
 
@@ -3730,26 +3731,26 @@ class FetchData(URLtypes, Thread):
                         tdict['start-time'] += tdd
 
                     last_start[channelid] = tdict['start-time']
-                    if 'stop-time' in tdict.keys():
+                    if 'stop-time' in list(tdict.keys()):
                         while tdict['stop-time'] < tdict['start-time']:
                             tdict['stop-time'] += tdd
 
                 tdict['offset'] = self.functions.get_offset(tdict['start-time'])
                 tdict['scandate'] = self.functions.get_fetchdate(tdict['start-time'])
                 if self.source_data["base"]["data-format"] == "text/html":
-                    if 'stop-time' in tdict.keys():
+                    if 'stop-time' in list(tdict.keys()):
                         last_stop = tdict['stop-time']
                     else:
                         last_stop = None
 
                 # Add any known value that does not need further processing
-                for k, v in self.process_values(program).items():
+                for k, v in list(self.process_values(program).items()):
                     if k in ('channelid', 'video', 'start-time', 'stop-time', 'length'):
                         continue
 
                     tdict[k] = v
 
-                if 'group' in program.keys() and not program['group'] in (None, ''):
+                if 'group' in list(program.keys()) and not program['group'] in (None, ''):
                     self.groupitems[channelid] += 1
                     tdict['group'] = program['group']
 
@@ -3785,10 +3786,10 @@ class FetchData(URLtypes, Thread):
         if not isinstance(values, dict):
             return
 
-        if not 'genre' in values.keys() and 'org-genre' in pdata.keys():
+        if not 'genre' in list(values.keys()) and 'org-genre' in list(pdata.keys()):
             values['genre'] = pdata['org-genre']
 
-        if not 'subgenre' in values.keys() and 'org-subgenre' in pdata.keys():
+        if not 'subgenre' in list(values.keys()) and 'org-subgenre' in list(pdata.keys()):
             values['subgenre'] = pdata['org-subgenre']
 
         tdict = self.process_values(values)
@@ -3799,25 +3800,30 @@ class FetchData(URLtypes, Thread):
 
     # Helper functions
     def print_result(self, tdict, channelid):
-        start = self.config.in_output_tz(tdict['start-time']).strftime('%d %b %H:%M')
+        try:
+            start = self.config.in_output_tz(tdict['start-time']).strftime('%d %b %H:%M')
+
+        except:
+            start = '? ??? ?:??'
+
         if self.data_output == sys.stdout:
             self.data_output.write('%s: %s' % (channelid, start))
-            for k, v in tdict.items():
-                if isinstance(v, (str, unicode)):
+            for k, v in list(tdict.items()):
+                if isinstance(v, str):
                     self.data_output.write('        %s: "%s"'.encode('utf-8', 'replace') % (k, v))
                 else:
                     self.data_output.write('        %s: %s' % (k, v))
 
         else:
             self.data_output.write('%s: %s\n' % (channelid, start))
-            for k, v in tdict.items():
-                if isinstance(v, (str, unicode)):
+            for k, v in list(tdict.items()):
+                if isinstance(v, str):
                     self.data_output.write('        %s: "%s"\n' % (k, v))
 
                 elif isinstance(v, list) and len(v) > 0:
                     vv = '        %s: ' % (k, )
                     for item in v:
-                        if isinstance(item, (str, unicode)):
+                        if isinstance(item, str):
                             vv = '%s"%s"\n                ' % (vv, item)
 
                         elif k == 'actor' and isinstance(item, dict):
@@ -3884,31 +3890,31 @@ class FetchData(URLtypes, Thread):
         chanlist.append(0)
         offset = self.config.opt_dict['offset']
         if type == 'day':
-            if channelid in self.day_loaded.keys():
-                if day in self.day_loaded[channelid].keys():
+            if channelid in list(self.day_loaded.keys()):
+                if day in list(self.day_loaded[channelid].keys()):
                     return self.day_loaded[channelid][day]
 
-                elif day == 'all' and offset in self.day_loaded[channelid].keys():
+                elif day == 'all' and offset in list(self.day_loaded[channelid].keys()):
                     return self.day_loaded[channelid][offset]
 
         if type == 'realday':
-            if channelid in self.day_present.keys():
-                if day in self.day_present[channelid].keys():
+            if channelid in list(self.day_present.keys()):
+                if day in list(self.day_present[channelid].keys()):
                     return self.day_present[channelid][day]
 
-                elif day == 'all' and offset in self.day_loaded[channelid].keys():
+                elif day == 'all' and offset in list(self.day_loaded[channelid].keys()):
                     return self.day_present[channelid][offset]
 
             return False
 
         if type == 'channel':
-            if channelid in self.channel_loaded.keys():
+            if channelid in list(self.channel_loaded.keys()):
                 return self.channel_loaded[channelid]
 
             return False
 
         if type == 'page':
-            if channelid in self.page_loaded.keys() and day in self.page_loaded[channelid].keys():
+            if channelid in list(self.page_loaded.keys()) and day in list(self.page_loaded[channelid].keys()):
                 return self.page_loaded[channelid][day]
 
             return False
@@ -3917,7 +3923,7 @@ class FetchData(URLtypes, Thread):
         chanlist = list(self.chanids.keys())
         chanlist.append(0)
         offset = self.config.opt_dict['offset']
-        daylist = range( offset, (offset + self.config.opt_dict['days']))
+        daylist = list(range( offset, (offset + self.config.opt_dict['days'])))
         if isinstance(channelid, (list, tuple)):
             chanlist = channelid
 
@@ -3932,10 +3938,10 @@ class FetchData(URLtypes, Thread):
                 daylist = [day]
 
             for channelid in chanlist:
-                if not channelid in self.day_loaded.keys():
+                if not channelid in list(self.day_loaded.keys()):
                     self.day_loaded[channelid] = {}
 
-                if not channelid in self.day_present.keys():
+                if not channelid in list(self.day_present.keys()):
                     self.day_present[channelid] = {}
 
                 for day in daylist:
@@ -3945,7 +3951,7 @@ class FetchData(URLtypes, Thread):
         if type == 'channel':
             for channelid in chanlist:
                 self.channel_loaded[channelid] = value
-                if value and channelid in self.all_chanids.keys():
+                if value and channelid in list(self.all_chanids.keys()):
                     for chanid in self.all_chanids[channelid]:
                         self.config.channels[chanid].source_ready(self.proc_id).set()
 
@@ -3961,7 +3967,7 @@ class FetchData(URLtypes, Thread):
 
             for channelid in chanlist:
                 if channelid in chanlist:
-                    if not channelid in self.page_loaded.keys():
+                    if not channelid in list(self.page_loaded.keys()):
                         self.page_loaded[channelid] = {}
 
                     for day in pagelist:
@@ -3970,7 +3976,7 @@ class FetchData(URLtypes, Thread):
     def process_values(self, values):
         tdict = {}
         # Add any known value that does not need further processing
-        for k, v in values.items():
+        for k, v in list(values.items()):
             if k in ('video', 'genre', 'subgenre'):
                 continue
 
@@ -3995,8 +4001,8 @@ class FetchData(URLtypes, Thread):
             elif k in self.config.key_values['date'] and isinstance(v, datetime.date):
                 tdict[k] = v
 
-            elif k in self.config.roletrans.keys() and isinstance(v, (list, tuple)) and len(v) > 0:
-                if not self.config.roletrans[k] in tdict.keys() or len(tdict[self.config.roletrans[k]]) == 0:
+            elif k in list(self.config.roletrans.keys()) and isinstance(v, (list, tuple)) and len(v) > 0:
+                if not self.config.roletrans[k] in list(tdict.keys()) or len(tdict[self.config.roletrans[k]]) == 0:
                     tdict[self.config.roletrans[k]] = v
 
                 for item in v:
@@ -4004,16 +4010,16 @@ class FetchData(URLtypes, Thread):
                         tdict[self.config.roletrans[k]].append(item)
 
             elif k in self.config.credit_keys and isinstance(v, dict):
-                for k2, v2 in v.items():
-                    if k2 in self.config.roletrans.keys() and isinstance(v2, (list, tuple)) and len(v2) > 0:
-                        if not self.config.roletrans[k2] in tdict.keys() or len(tdict[self.config.roletrans[k2]]) == 0:
+                for k2, v2 in list(v.items()):
+                    if k2 in list(self.config.roletrans.keys()) and isinstance(v2, (list, tuple)) and len(v2) > 0:
+                        if not self.config.roletrans[k2] in list(tdict.keys()) or len(tdict[self.config.roletrans[k2]]) == 0:
                             tdict[self.config.roletrans[k2]] = v2
 
                         for item in v2:
                             if not item in tdict[self.config.roletrans[k2]]:
                                 tdict[self.config.roletrans[k2]].append(item)
 
-        if 'genre' in values.keys() or 'subgenre' in values.keys() or 'genres' in values.keys():
+        if 'genre' in list(values.keys()) or 'subgenre' in list(values.keys()) or 'genres' in list(values.keys()):
             gg = self.get_genre(values)
             tdict['genre'] = gg[0]
             tdict['subgenre'] = gg[1]
@@ -4034,7 +4040,7 @@ class FetchData(URLtypes, Thread):
         subgenre = ''
         if 'genres'in values:
             # It is return as a set of genre/subgenre so we split them
-            if isinstance(values['genres'], (str,unicode)):
+            if isinstance(values['genres'], str):
                 values['genre'] = values['genres']
 
             if isinstance(values['genres'], (list,tuple)):
@@ -4050,7 +4056,7 @@ class FetchData(URLtypes, Thread):
 
             if 'genre' in values:
                 # Just in case it is a comma seperated list
-                if isinstance(values['genre'], (str, unicode)):
+                if isinstance(values['genre'], str):
                     gg = values['genre'].split(',')
 
                 elif isinstance(values['genre'], list):
@@ -4060,7 +4066,7 @@ class FetchData(URLtypes, Thread):
                     gg = ['']
 
                 gs0 =gg[0].strip()
-                gs1 = u''
+                gs1 = ''
                 gg0 = gs0.lower()
                 if len(gg) > 1:
                     gs1 = gg[1].strip()
@@ -4069,8 +4075,8 @@ class FetchData(URLtypes, Thread):
                     gs1 = values['subgenre'].strip()
 
                 gg1 = gs1.lower()
-                if gg0 in self.source_data['cattrans'].keys():
-                    if gg1 in self.source_data['cattrans'][gg0].keys():
+                if gg0 in list(self.source_data['cattrans'].keys()):
+                    if gg1 in list(self.source_data['cattrans'][gg0].keys()):
                         genre = self.source_data['cattrans'][gg0][gg1][0].strip()
                         subgenre = self.source_data['cattrans'][gg0][gg1][1].strip()
 
@@ -4096,11 +4102,11 @@ class FetchData(URLtypes, Thread):
 
                     if self.config.write_info_files:
                         if 'subgenre' in values and values['subgenre'] not in (None, ''):
-                            self.config.infofiles.addto_detail_list(u'unknown %s genre/subgenre => ["%s", "%s"]' %
+                            self.config.infofiles.addto_detail_list('unknown %s genre/subgenre => ["%s", "%s"]' %
                                 (self.source, values['genre'], values['subgenre']))
 
                         else:
-                            self.config.infofiles.addto_detail_list(u'unknown %s genre => %s' %
+                            self.config.infofiles.addto_detail_list('unknown %s genre => %s' %
                                 (self.source, values['genre']))
 
                 return (genre, subgenre, gs0, gs1)
@@ -4109,12 +4115,12 @@ class FetchData(URLtypes, Thread):
             if self.new_cattrans == None:
                 self.new_cattrans = []
             if 'subgenre' in values and values['subgenre'] not in (None, ''):
-                if values['subgenre'].lower().strip() in self.source_data['cattrans'].keys():
+                if values['subgenre'].lower().strip() in list(self.source_data['cattrans'].keys()):
                     genre = self.source_data['cattrans'][values['subgenre'].lower().strip()]
                     subgenre = values['subgenre'].strip()
 
                 else:
-                    for k, v in self.source_data['cattrans_keywords'].items():
+                    for k, v in list(self.source_data['cattrans_keywords'].items()):
                         if k.lower() in values['subgenre'].lower():
                             genre = v.strip()
                             subgenre = values['subgenre'].strip()
@@ -4126,7 +4132,7 @@ class FetchData(URLtypes, Thread):
                                         self.config.cattrans_unknown.lower().strip()))
 
                     if self.config.write_info_files:
-                        self.config.infofiles.addto_detail_list(u'unknown %s subgenre => "%s"' %
+                        self.config.infofiles.addto_detail_list('unknown %s subgenre => "%s"' %
                             (self.source, values['subgenre']))
 
         else:
@@ -4160,7 +4166,7 @@ class FetchData(URLtypes, Thread):
                 if len(p) >1:
                     self.config.log(self.config.text('fetch', 36,  (group, ptitle)), 64)
                     if self.config.write_info_files:
-                        self.config.infofiles.addto_detail_list(unicode('Group removing = \"%s\" from \"%s\"' %
+                        self.config.infofiles.addto_detail_list(str('Group removing = \"%s\" from \"%s\"' %
                             (group, ptitle)))
 
                     ptitle = p[1].strip()
@@ -4202,13 +4208,13 @@ class FetchData(URLtypes, Thread):
                 pgroup = p[0].strip()
                 ptitle = p[1].strip()
                 if self.config.write_info_files:
-                    self.config.infofiles.addto_detail_list(unicode('Name split = %s + %s' % (pgroup, ptitle)))
+                    self.config.infofiles.addto_detail_list(str('Name split = %s + %s' % (pgroup, ptitle)))
 
         # Check the Title rename list
         if ptitle.lower() in self.config.titlerename:
             self.config.log(self.config.text('fetch', 38, (ptitle, self.config.titlerename[ptitle.lower()])), 64)
             if self.config.write_info_files:
-                self.config.infofiles.addto_detail_list(unicode('Title renaming %s to %s\n' %
+                self.config.infofiles.addto_detail_list(str('Title renaming %s to %s\n' %
                     (ptitle, self.config.titlerename[ptitle.lower()])))
 
             ptitle = self.config.titlerename[ptitle.lower()]
@@ -4221,7 +4227,7 @@ class FetchData(URLtypes, Thread):
         if psubtitle != '':
             values['episode title'] = psubtitle
 
-        elif 'episode title' in values.keys():
+        elif 'episode title' in list(values.keys()):
             del(values['episode title'])
 
         return values

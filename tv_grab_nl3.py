@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 """
@@ -101,7 +101,7 @@
 """
 
 # Python 3 compatibility
-from __future__ import unicode_literals
+
 # from __future__ import print_function
 
 # Modules we need
@@ -136,7 +136,7 @@ class Configure(tvgrabpyAPI.Configure):
         self.major = 3
         self.minor = 0
         self.patch = 1
-        self.patchdate = u'20161204'
+        self.patchdate = '20161204'
         self.alfa = False
         self.beta = False
         # The default timezone to use in the xmltv output file. Can be overruled in the users configuration.

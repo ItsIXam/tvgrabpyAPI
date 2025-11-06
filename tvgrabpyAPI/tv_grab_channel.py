@@ -1,8 +1,8 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # Python 3 compatibility
-from __future__ import unicode_literals
+
 # from __future__ import print_function
 
 import codecs, locale, os, io, shutil, smtplib
@@ -10,10 +10,10 @@ import codecs, locale, os, io, shutil, smtplib
 import re, sys, traceback, difflib
 import time, datetime, pytz, random
 from threading import Thread, Lock, RLock, Event
-from Queue import Queue, Empty
+from queue import Queue, Empty
 from xml.sax import saxutils
 from copy import copy, deepcopy
-from DataTreeGrab import is_data_value, data_value
+from datatree.datatreegrab import is_data_value, data_value
 
 class Channel_Config(Thread):
     """
@@ -270,7 +270,7 @@ class Channel_Config(Thread):
 
                                 ld = fetched_detail.get('last_detail', None)
                                 if ld != None:
-                                    if not ld in fdetails.keys():
+                                    if not ld in list(fdetails.keys()):
                                         fdetails[ld] = {}
 
                                     fdetails[ld]['terminated'] = True
@@ -282,13 +282,13 @@ class Channel_Config(Thread):
                                 src_id = fetched_detail['source']
                                 if is_data_value('data', fetched_detail, dict):
                                     prog_ID = fetched_detail['data']['prog_ID']
-                                    if not src_id in fdetails.keys():
+                                    if not src_id in list(fdetails.keys()):
                                         fdetails[src_id] = {}
 
                                     fdetails[src_id][prog_ID] = fetched_detail['data']
 
                     for p in programs[:]:
-                        if p['prog_ID'] in fdetails[index].keys():
+                        if p['prog_ID'] in list(fdetails[index].keys()):
                             fdetails[index][p['prog_ID']]['scandate'] = p['scandate']
                             for key in self.config.channelsource[index].update_base:
                                 val = fdetails[index][p['prog_ID']].get(key, None)
@@ -300,7 +300,7 @@ class Channel_Config(Thread):
 
                         self.add_tuple_values(p)
 
-                    for p in fdetails[index].values():
+                    for p in list(fdetails[index].values()):
                         if save_detail_to_cache(index, p) == -1:
                             break
 
@@ -313,7 +313,7 @@ class Channel_Config(Thread):
                         self.channel_node.merge_source(programs, index)
 
             # And from any child channels
-            if self.chanid in self.config.combined_channels.keys():
+            if self.chanid in list(self.config.combined_channels.keys()):
                 for c in self.config.combined_channels[self.chanid][:]:
                     if c['chanid'] in self.config.channels:
                         self.source = c['chanid']
@@ -425,7 +425,7 @@ class Channel_Config(Thread):
                             log_string += self.config.text('fetch', 54, (self.config.channelsource[s].source, ))
 
                         else:
-                            log_string += u', %s' % self.config.channelsource[s].source
+                            log_string += ', %s' % self.config.channelsource[s].source
 
                     else:
                         if not self.get_opt('disable_ttvdb'):
@@ -510,7 +510,7 @@ class Channel_Config(Thread):
                 self.functions.update_counter('exclude', self.config.cache_id, self.chanid)
                 continue
 
-            logstring = u'%s: %s' % (self.channel_node.get_start_stop(pn), pn.get_value('name'))
+            logstring = '%s: %s' % (self.channel_node.get_start_stop(pn), pn.get_value('name'))
 
             # We only fetch when we are in slow mode and slowdays is not set to tight
             no_fetch = (self.get_opt('fast') or pn.get_value('offset') >= \
@@ -583,7 +583,7 @@ class Channel_Config(Thread):
 
             # Do the detail requests
             for src_id in self.config.detail_sources:
-                if src_id in sources.keys():
+                if src_id in list(sources.keys()):
                     # Check if there is a request pending
                     if data_value([src_id, 'detail_url'], sources, str) in self.requested_details[src_id]:
                         break
@@ -683,10 +683,10 @@ class Channel_Config(Thread):
 
             return False
 
-        if opt in self.opt_dict.keys():
+        if opt in list(self.opt_dict.keys()):
             retval = self.opt_dict[opt]
 
-        elif opt in self.config.opt_dict.keys():
+        elif opt in list(self.config.opt_dict.keys()):
             retval = self.config.opt_dict[opt]
 
         if retval == None:
@@ -700,13 +700,13 @@ class Channel_Config(Thread):
         return retval
 
     def get_channelid(self, source):
-        if source in self.channelid.keys():
+        if source in list(self.channelid.keys()):
             return self.channelid[source]
 
         return ''
 
     def source_ready(self, source):
-        if not source in self.source_data.keys():
+        if not source in list(self.source_data.keys()):
             self.source_data[source] = Event()
 
         return self.source_data[source]
@@ -747,10 +747,10 @@ class Channel_Config(Thread):
         return value
 
     def add_tuple_values(self, data, pnode = None, source = None):
-        for tk, tv in self.config.tuple_values.items():
+        for tk, tv in list(self.config.tuple_values.items()):
             tl = []
             for sk in tv:
-                if sk in data.keys() and data[sk] not in (None, ''):
+                if sk in list(data.keys()) and data[sk] not in (None, ''):
                     tl .append(data[sk])
 
                 elif pnode != None:
@@ -785,14 +785,14 @@ class ChannelNode():
             self.current_stats = {}
             self.adding_stats = {}
             self.merge_stats = {}
-            if not self.chanid in self.config.channels.keys():
+            if not self.chanid in list(self.config.channels.keys()):
                 return
 
-            if not self.chanid in self.config.channelprogram_rename.keys():
+            if not self.chanid in list(self.config.channelprogram_rename.keys()):
                 self.config.channelprogram_rename[self.chanid] = {}
 
             self.key_list= list(self.config.tuple_values.keys())
-            for kl in self.config.key_values.values():
+            for kl in list(self.config.key_values.values()):
                 self.key_list.extend(kl)
 
             self.clear_all_programs()
@@ -802,7 +802,7 @@ class ChannelNode():
 
             self.child_times = []
             self.groupslot_names = self.config.groupslot_names[:]
-            if self.chanid in self.config.combined_channels.keys():
+            if self.chanid in list(self.config.combined_channels.keys()):
                 # This channel has children
                 date_now = self.config.in_fetch_tz(datetime.datetime.now(pytz.utc)).toordinal()
                 start_date = date_now + self.config.opt_dict['offset']
@@ -849,13 +849,13 @@ class ChannelNode():
                     self.child_times.append(last_date)
 
                 for child in self.config.combined_channels[self.chanid]:
-                    if 'slots' in child.keys():
-                        if isinstance(child['slots'], (str, unicode)):
+                    if 'slots' in list(child.keys()):
+                        if isinstance(child['slots'], str):
                             self.groupslot_names.append(re.sub('[-,. ]', '', self.config.fetch_func.remove_accents(child['slots']).lower().strip()))
 
                         elif isinstance(child['slots'], list):
                             for gs in child['slots']:
-                                if isinstance(gs, (str, unicode)):
+                                if isinstance(gs, str):
                                     self.groupslot_names.append(re.sub('[-,. ]', '', self.config.fetch_func.remove_accents(gs).lower().strip()))
 
             self.merge_type = None
@@ -1181,7 +1181,7 @@ class ChannelNode():
                 previous_node = None
                 for index in range(len(programs)):
                     # Check for renames
-                    if programs[index]['name'].lower().strip() in self.config.channelprogram_rename[self.chanid].keys():
+                    if programs[index]['name'].lower().strip() in list(self.config.channelprogram_rename[self.chanid].keys()):
                         programs[index]['name'] = self.config.channelprogram_rename[self.chanid][programs[index]['name'].lower().strip()]
 
                     # Create the program node
@@ -1228,12 +1228,12 @@ class ChannelNode():
 
                 # first we do some general renaming and filter out the groupslots
                 for p in programs[:]:
-                    if p['name'].lower().strip() in self.config.channelprogram_rename[self.chanid].keys():
+                    if p['name'].lower().strip() in list(self.config.channelprogram_rename[self.chanid].keys()):
                         p['name'] = self.config.channelprogram_rename[self.chanid][p['name'].lower().strip()]
 
                     p['mname'] = re.sub('[-,. ]', '', self.config.fetch_func.remove_accents(p['name']).lower()).strip()
                     p['mgname'] = None
-                    if 'group name' in p.keys() and p['group name'] not in (None, ''):
+                    if 'group name' in list(p.keys()) and p['group name'] not in (None, ''):
                         p['mgname'] = re.sub('[-,. ]', '', self.config.fetch_func.remove_accents(p['group name']).lower()).strip()
 
                     # It's a groupslot
@@ -1256,7 +1256,7 @@ class ChannelNode():
                 for index in range(len(programs)):
                     for check in self.checkrange:
                         mstart = programs[index]['start-time'] + datetime.timedelta(0, 0, 0, 0, check)
-                        if mstart in self.programs_by_start.keys():
+                        if mstart in list(self.programs_by_start.keys()):
                             for pn in self.programs_by_start[mstart]:
                                 mname = programs[index]['mname']
                                 mgname = programs[index]['mgname']
@@ -1271,9 +1271,9 @@ class ChannelNode():
                                         self.current_list.remove(pn)
 
                                     pn.add_source_data(programs[index], source)
-                                    if 'prog_ID' in programs[index].keys() and programs[index]['prog_ID'] not in (None, ''):
+                                    if 'prog_ID' in list(programs[index].keys()) and programs[index]['prog_ID'] not in (None, ''):
                                         prog_ID = programs[index]['prog_ID']
-                                        if not prog_ID in self.programs_by_prog_ID[source].keys():
+                                        if not prog_ID in list(self.programs_by_prog_ID[source].keys()):
                                             self.programs_by_prog_ID[source][prog_ID] = [pn]
 
                                         elif not pn in self.programs_by_prog_ID[source][prog_ID]:
@@ -1482,7 +1482,7 @@ class ChannelNode():
                 for index in range(len(programs)):
                     for check in self.checkrange:
                         mstart = programs[index].start + datetime.timedelta(0, 0, 0, 0, check)
-                        if mstart in self.programs_by_start.keys():
+                        if mstart in list(self.programs_by_start.keys()):
                             for pn in self.programs_by_start[mstart]:
                                 mname = programs[index].match_name
                                 mgname = programs[index].match_group_name
@@ -1500,11 +1500,11 @@ class ChannelNode():
                                     for s in self.config.source_order:
                                         prog_ID = pn.get_value('prog_ID', s)
                                         if prog_ID not in ('', None):
-                                            if not s in self.programs_by_prog_ID.keys():
+                                            if not s in list(self.programs_by_prog_ID.keys()):
                                                 self.programs_by_prog_ID[s] = {}
                                                 self.programs_by_prog_ID[s][prog_ID] = [pn]
 
-                                            elif not prog_ID in self.programs_by_prog_ID[s].keys():
+                                            elif not prog_ID in list(self.programs_by_prog_ID[s].keys()):
                                                 self.programs_by_prog_ID[s][prog_ID] = [pn]
 
                                             elif not pn in self.programs_by_prog_ID[s][prog_ID]:
@@ -1583,7 +1583,7 @@ class ChannelNode():
                     self.remove_gap(gap)
 
             # Also check if a genric genre does apply
-            for g, chlist in self.config.generic_channel_genres.items():
+            for g, chlist in list(self.config.generic_channel_genres.items()):
                 if self.chanid in chlist:
                     gen_genre = g
                     break
@@ -1763,7 +1763,7 @@ class ChannelNode():
             if pn in self.group_slots:
                 self.group_slots.remove(pn)
 
-            for pnkey, pnlist in self.programs_by_start.items()[:]:
+            for pnkey, pnlist in list(self.programs_by_start.items())[:]:
                 if pn in pnlist:
                     if len(pnlist) == 1:
                         del self.programs_by_start[pnkey]
@@ -1771,7 +1771,7 @@ class ChannelNode():
                     else:
                         pnlist.remove(pn)
 
-            for pnkey, pnlist in self.programs_by_stop.items()[:]:
+            for pnkey, pnlist in list(self.programs_by_stop.items())[:]:
                 if pn in pnlist:
                     if len(pnlist) == 1:
                         del self.programs_by_stop[pnkey]
@@ -1779,7 +1779,7 @@ class ChannelNode():
                     else:
                         pnlist.remove(pn)
 
-            for pnkey, pnlist in self.programs_by_name.items()[:]:
+            for pnkey, pnlist in list(self.programs_by_name.items())[:]:
                 if pn in pnlist:
                     if len(pnlist) == 1:
                         del self.programs_by_name[pnkey]
@@ -1787,7 +1787,7 @@ class ChannelNode():
                     else:
                         pnlist.remove(pn)
 
-            for pnkey, pnlist in self.programs_by_matchname.items()[:]:
+            for pnkey, pnlist in list(self.programs_by_matchname.items())[:]:
                 if pn in pnlist:
                     if len(pnlist) == 1:
                         del self.programs_by_matchname[pnkey]
@@ -1795,7 +1795,7 @@ class ChannelNode():
                     else:
                         pnlist.remove(pn)
 
-            for pnkey, pnlist in self.programs_with_no_genre.items()[:]:
+            for pnkey, pnlist in list(self.programs_with_no_genre.items())[:]:
                 if pn in pnlist:
                     if len(pnlist) == 1:
                         del self.programs_with_no_genre[pnkey]
@@ -1803,8 +1803,8 @@ class ChannelNode():
                     else:
                         pnlist.remove(pn)
 
-            for source in self.programs_by_prog_ID.keys():
-                for pnkey, pnlist in self.programs_by_prog_ID[source].items()[:]:
+            for source in list(self.programs_by_prog_ID.keys()):
+                for pnkey, pnlist in list(self.programs_by_prog_ID[source].items())[:]:
                     if pn in pnlist:
                         if len(pnlist) == 1:
                             del self.programs_by_prog_ID[source][pnkey]
@@ -1825,32 +1825,32 @@ class ChannelNode():
                 pn.is_groupslot = True
                 return
 
-            if pn.start in self.programs_by_start.keys():
+            if pn.start in list(self.programs_by_start.keys()):
                 self.programs_by_start[pn.start].append(pn)
 
             else:
                 self.programs_by_start[pn.start] = [pn]
 
-            if pn.stop in self.programs_by_stop.keys():
+            if pn.stop in list(self.programs_by_stop.keys()):
                 self.programs_by_stop[pn.stop].append(pn)
 
             else:
                 self.programs_by_stop[pn.stop] = [pn]
 
-            if pn.name in self.programs_by_name.keys():
+            if pn.name in list(self.programs_by_name.keys()):
                 self.programs_by_name[pn.name].append(pn)
 
             else:
                 self.programs_by_name[pn.name] = [pn]
 
-            if pn.match_name in self.programs_by_matchname.keys():
+            if pn.match_name in list(self.programs_by_matchname.keys()):
                 self.programs_by_matchname[pn.match_name].append(pn)
 
             else:
                 self.programs_by_matchname[pn.match_name] = [pn]
 
             if not pn.is_set('genre') or pn.get_value('genre').lower().strip() in ('', self.config.cattrans_unknown.lower().strip()):
-                if pn.match_name in self.programs_with_no_genre.keys():
+                if pn.match_name in list(self.programs_with_no_genre.keys()):
                     self.programs_with_no_genre[pn.match_name].append(pn)
 
                 else:
@@ -1858,10 +1858,10 @@ class ChannelNode():
 
             prog_ID = pn.get_value('prog_ID', source)
             if self.is_source(source) and prog_ID not in (None, ''):
-                if not source in  self.programs_by_prog_ID.keys():
+                if not source in  list(self.programs_by_prog_ID.keys()):
                     self.programs_by_prog_ID[source] = {}
 
-                if not prog_ID in self.programs_by_prog_ID[source].keys():
+                if not prog_ID in list(self.programs_by_prog_ID[source].keys()):
                     self.programs_by_prog_ID[source][prog_ID] = [pn]
 
                 elif not pn in self.programs_by_prog_ID[source][prog_ID]:
@@ -1871,8 +1871,8 @@ class ChannelNode():
         # Check if we can match any program without genre to one similar named with genre
         with self.node_lock:
             name_remove = []
-            for k, pl in self.programs_with_no_genre.items():
-                if len(pl) >= self.programs_by_matchname[k]:
+            for k, pl in list(self.programs_with_no_genre.items()):
+                if len(pl) >= len(self.programs_by_matchname[k]):
                     continue
 
                 for pn in self.programs_by_matchname[k]:
@@ -1886,7 +1886,7 @@ class ChannelNode():
                         break
 
             for k in name_remove:
-                if k in self.programs_with_no_genre.keys():
+                if k in list(self.programs_with_no_genre.keys()):
                     del self.programs_with_no_genre[k]
 
     def is_source(self, source, include_special_sources = False, only_detail_sources = False):
@@ -1993,15 +1993,15 @@ class ChannelNode():
                 cat0 = ('', '')
                 cat1 = (g.lower(), '')
                 cat2 = (g.lower(), sg.lower())
-                if cat2 in self.config.cattrans.keys() and self.config.cattrans[cat2] != '':
+                if cat2 in list(self.config.cattrans.keys()) and self.config.cattrans[cat2] != '':
                     cat = self.config.cattrans[cat2].capitalize()
 
-                elif cat1 in self.config.cattrans.keys() and self.config.cattrans[cat1] != '':
+                elif cat1 in list(self.config.cattrans.keys()) and self.config.cattrans[cat1] != '':
                     cat = self.config.cattrans[cat1].capitalize()
                     if sg != '':
                         self.config.cattrans[cat2] = self.config.cattrans[cat1]
 
-                elif cat0 in self.config.cattrans.keys() and self.config.cattrans[cat0] != '':
+                elif cat0 in list(self.config.cattrans.keys()) and self.config.cattrans[cat0] != '':
                    cat = self.config.cattrans[cat0].capitalize()
                    if sg != '' and g != self.config.cattrans_unknown.lower().strip():
                         self.config.cattrans[cat2] = self.config.cattrans[cat0]
@@ -2046,7 +2046,7 @@ class ProgramNode():
             self.tdict = {}
             self.matchobject = difflib.SequenceMatcher(isjunk=lambda x: x in " '\",.-/", autojunk=False)
             self.first_source = True
-            for k in self.config.tuple_values.keys():
+            for k in list(self.config.tuple_values.keys()):
                 self.init_key_value(k)
 
             for k in ('start-time', 'stop-time', 'length', 'name'):
@@ -2059,27 +2059,27 @@ class ProgramNode():
                 self.is_valid = False
 
     def is_set(self, key, source = None):
-        if key in self.tdict.keys():
-            if source == None or source in self.tdict[key]['sources'].keys() and self.get_value(key, source) != None:
+        if key in list(self.tdict.keys()):
+            if source == None or source in list(self.tdict[key]['sources'].keys()) and self.get_value(key, source) != None:
                 return True
 
         if key == 'credits':
             for k in self.config.key_values['credits']:
                 if k in self.tdict and len(self.tdict[k]['prime']) > 0:
-                    if source == None or source in self.tdict[key]['sources'].keys():
+                    if source == None or source in list(self.tdict[key]['sources'].keys()):
                         return True
 
         elif key == 'video':
             for k in self.config.key_values['video']:
                 if k in self.tdict:
-                    if source == None or source in self.tdict[key]['sources'].keys():
+                    if source == None or source in list(self.tdict[key]['sources'].keys()):
                         return True
 
         return False
 
     def adjust_start(self, pstart):
         with self.node_lock:
-            if self.start in self.channode.programs_by_start.keys() and self in self.channode.programs_by_start[self.start]:
+            if self.start in list(self.channode.programs_by_start.keys()) and self in self.channode.programs_by_start[self.start]:
                 if len(self.channode.programs_by_start[self.start]) == 1:
                     del self.channode.programs_by_start[self.start]
 
@@ -2087,7 +2087,7 @@ class ProgramNode():
                     self.channode.programs_by_start[self.start].remove(self)
 
             self.start = copy(pstart).replace(second = 0, microsecond = 0)
-            if self.start in self.channode.programs_by_start.keys():
+            if self.start in list(self.channode.programs_by_start.keys()):
                 self.channode.programs_by_start[self.start].append(self)
 
             else:
@@ -2101,7 +2101,7 @@ class ProgramNode():
 
     def adjust_stop(self, pstop):
         with self.node_lock:
-            if self.stop in self.channode.programs_by_stop.keys() and self in self.channode.programs_by_stop[self.stop]:
+            if self.stop in list(self.channode.programs_by_stop.keys()) and self in self.channode.programs_by_stop[self.stop]:
                 if len(self.channode.programs_by_stop[self.stop]) == 1:
                     del self.channode.programs_by_stop[self.stop]
 
@@ -2109,7 +2109,7 @@ class ProgramNode():
                     self.channode.programs_by_stop[self.stop].remove(self)
 
             self.stop = copy(pstop).replace(second = 0, microsecond = 0)
-            if self.stop in self.channode.programs_by_stop.keys():
+            if self.stop in list(self.channode.programs_by_stop.keys()):
                 self.channode.programs_by_stop[self.stop].append(self)
 
             else:
@@ -2180,9 +2180,9 @@ class ProgramNode():
                 self.check_start_stop(data['start-time'], data_value('stop-time', data, datetime.datetime))
 
             # Check for allowed key values
-            for k, v in data.items():
+            for k, v in list(data.items()):
                 if k in ('credits', 'video'):
-                    for k2, v2 in v.items():
+                    for k2, v2 in list(v.items()):
                         if k2 in self.config.key_values[k]:
                             self.set_value(k2, v2, source)
 
@@ -2221,13 +2221,13 @@ class ProgramNode():
                 self.check_start_stop(pnode.start, pnode.stop)
 
             # Check for allowed key values
-            for key, v in pnode.tdict.items():
+            for key, v in list(pnode.tdict.items()):
                 value = pnode.get_value(key)
                 if not self.is_set(key):
                     self.tdict[key] = copy(v)
                     continue
 
-                for source, value in v['sources'].items():
+                for source, value in list(v['sources'].items()):
                     self.set_value(key, value, source)
 
             self.first_source = False
@@ -2277,7 +2277,7 @@ class ProgramNode():
             return
 
         with self.node_lock:
-            for key, value in data.items():
+            for key, value in list(data.items()):
                 if value in (None, ''):
                     continue
 
@@ -2303,7 +2303,7 @@ class ProgramNode():
         if force_prime != None:
             self.tdict[key]['prime'] = force_prime
 
-        elif (not 'prime' in self.tdict[key].keys() or self.tdict[key]['prime'] == None) and value != None:
+        elif (not 'prime' in list(self.tdict[key].keys()) or self.tdict[key]['prime'] == None) and value != None:
             self.tdict[key]['prime'] = value
 
     def set_value(self, key, value, source=None):
@@ -2337,7 +2337,7 @@ class ProgramNode():
                             self.set_source_value(key, source, value, value)
                             break
 
-                        elif(s in self.tdict[key]['sources'].keys() and self.tdict[key]['sources'][s] != ''):
+                        elif(s in list(self.tdict[key]['sources'].keys()) and self.tdict[key]['sources'][s] != ''):
                             self.set_source_value(key, source, value)
                             break
 
@@ -2345,11 +2345,11 @@ class ProgramNode():
                         self.set_source_value(key, source, value)
 
             elif key in self.config.key_values['credits']:
-                if isinstance(value, (dict, str, unicode)):
+                if isinstance(value, (dict, str)):
                     value = [value]
 
                 self.set_source_value(key, source, value)
-                if not 'prime names' in self.tdict[key].keys():
+                if not 'prime names' in list(self.tdict[key].keys()):
                     self.tdict[key]['prime names'] = []
                     self.tdict[key]['prime'] = []
 
@@ -2395,7 +2395,7 @@ class ProgramNode():
                     self.set_source_value(key, source, value, value)
                     self.tdict[key]['preferred'] = True
 
-                elif self.is_set(key) and not 'preferred' in self.tdict[key].keys() and len(value) > len(self.get_value(key)):
+                elif self.is_set(key) and not 'preferred' in list(self.tdict[key].keys()) and len(value) > len(self.get_value(key)):
                     self.set_source_value(key, source, value, value)
 
                 else:
@@ -2458,15 +2458,15 @@ class ProgramNode():
 
                     else:
                         for item in range(len(value)):
-                            if not isinstance(value[item], unicode):
-                                value[item] = unicode(value[item])
+                            if not isinstance(value[item], str):
+                                value[item] = str(value[item])
 
-                if not isinstance(value, unicode):
-                    value = unicode(value)
+                if not isinstance(value, str):
+                    value = str(value)
 
                 if key == 'premiere year':
                     value = re.sub('[()]', '', value).strip()
-                    if isinstance(value, unicode) and len(value) == 4:
+                    if isinstance(value, str) and len(value) == 4:
                         try:
                             x = int(value)
                             if 1900 < x <= datetime.date.today().year:
@@ -2488,21 +2488,21 @@ class ProgramNode():
             elif key in self.config.key_values['list']:
                 if key == 'country':
                     rlist = []
-                    if isinstance(value, unicode):
+                    if isinstance(value, str):
                         cd = re.split('[,()/]', re.sub('\.', '', value).upper())
                         for cstr in cd:
-                            if cstr in self.config.coutrytrans.values():
+                            if cstr in list(self.config.coutrytrans.values()):
                                 rlist.append(cstr)
 
-                            elif cstr in self.config.coutrytrans.keys():
+                            elif cstr in list(self.config.coutrytrans.keys()):
                                 rlist.append(self.config.coutrytrans[cstr])
 
                             elif self.config.write_info_files:
-                                self.config.infofiles.addto_detail_list(u'new country => %s' % (cstr))
+                                self.config.infofiles.addto_detail_list('new country => %s' % (cstr))
 
                     elif isinstance(value, (list,tuple)):
                         for item in value:
-                            if not isinstance(item, unicode):
+                            if not isinstance(item, str):
                                 continue
 
                             cd = re.split('[,()/]', re.sub('\.', '', item).upper())
@@ -2510,14 +2510,14 @@ class ProgramNode():
                                 if cstr == '':
                                     continue
 
-                                if cstr in self.config.coutrytrans.values():
+                                if cstr in list(self.config.coutrytrans.values()):
                                     rlist.append(cstr)
 
-                                elif cstr in self.config.coutrytrans.keys():
+                                elif cstr in list(self.config.coutrytrans.keys()):
                                     rlist.append(self.config.coutrytrans[cstr])
 
                                 elif self.config.write_info_files:
-                                    self.config.infofiles.addto_detail_list(u'new country => %s' % (cstr))
+                                    self.config.infofiles.addto_detail_list('new country => %s' % (cstr))
 
                     if len(rlist) > 0:
                         add_value(rlist)
@@ -2581,7 +2581,7 @@ class ProgramNode():
             if self.get_value('genre').lower() in self.config.movie_genres or \
                 (not self.get_value('genre').lower() in self.config.series_genres and not self.is_set('episode title')):
                 # We put these together again
-                for s, v in self.tdict['title']['sources'].items():
+                for s, v in list(self.tdict['title']['sources'].items()):
                     if not v[0] in (None, ''):
                         remerge(s, v, False)
 
@@ -2594,7 +2594,7 @@ class ProgramNode():
             names = []
             episodes = []
             # First sort the available tuples on the available title parts
-            for s, v in self.tdict['title']['sources'].items():
+            for s, v in list(self.tdict['title']['sources'].items()):
                 names.append((s, v[1].lower()))
                 if v[0] in (None, ''):
                     # No groupname
@@ -2759,7 +2759,7 @@ class ProgramNode():
         with self.node_lock:
             if len(self.tdict['genres']['values']) >1:
                 gcount = {}
-                for s, v in self.tdict['genres']['sources'].items():
+                for s, v in list(self.tdict['genres']['sources'].items()):
                     if v[0] in (None, ''):
                         g = 'none'
 
@@ -2772,7 +2772,7 @@ class ProgramNode():
                     else:
                         sg = v[1].lower()
 
-                    if g not in gcount.keys():
+                    if g not in list(gcount.keys()):
                         gcount[g] = {}
                         gcount[g]['sg'] = {}
                         gcount[g]['count'] = 1
@@ -2780,7 +2780,7 @@ class ProgramNode():
                     else:
                         gcount[g]['count'] += 1
 
-                    if sg not in gcount[g]['sg'].keys():
+                    if sg not in list(gcount[g]['sg'].keys()):
                         gcount[g]['sg'][sg] = 1
 
                     else:
@@ -2788,14 +2788,14 @@ class ProgramNode():
 
                 gprime = 'none'
                 gprimecnt = 0
-                for g, v in gcount.items():
+                for g, v in list(gcount.items()):
                     if g != 'none' and v['count'] > gprimecnt:
                         gprime = g
                         gprimecnt = v['count']
 
                 sgprime = 'none'
                 sgprimecnt = 0
-                for sg, v in gcount[gprime]['sg'].items():
+                for sg, v in list(gcount[gprime]['sg'].items()):
                     if sg != 'none' and v > sgprimecnt:
                         sgprime = sg
                         sgprimecnt = v
@@ -2815,7 +2815,7 @@ class ProgramNode():
                     check_group_names()
 
                 ncount = {}
-                for s, v in self.tdict['title']['sources'].items():
+                for s, v in list(self.tdict['title']['sources'].items()):
                     if v[1] in (None, ''):
                         n = 'none'
 
@@ -2828,7 +2828,7 @@ class ProgramNode():
                     else:
                         et = v[2].lower()
 
-                    if n not in ncount.keys():
+                    if n not in list(ncount.keys()):
                         ncount[n] = {}
                         ncount[n]['name'] = v[1]
                         ncount[n]['et'] = {}
@@ -2837,7 +2837,7 @@ class ProgramNode():
                     else:
                         ncount[n]['count'] += 1
 
-                    if et not in ncount[n]['et'].keys():
+                    if et not in list(ncount[n]['et'].keys()):
                         ncount[n]['et'][et] = {}
                         ncount[n]['et'][et]['name'] = v[2]
                         ncount[n]['et'][et]['count'] = 1
@@ -2848,7 +2848,7 @@ class ProgramNode():
                 nprime = 'none'
                 pname = ''
                 nprimecnt = 0
-                for n, v in ncount.items():
+                for n, v in list(ncount.items()):
                     if n != 'none' and v['count'] > nprimecnt:
                         nprime = n
                         pname = v['name']
@@ -2856,7 +2856,7 @@ class ProgramNode():
 
                 etprime = 'none'
                 etprimecnt = 0
-                for et, v in ncount[nprime]['et'].items():
+                for et, v in list(ncount[nprime]['et'].items()):
                     if et != 'none' and v['count'] > etprimecnt:
                         etprime = v['name']
                         etprimecnt = v['count']
@@ -2879,7 +2879,7 @@ class ProgramNode():
             return self.config.in_output_tz(self.stop).strftime('%d %b %H:%M')
 
         if key == 'ID':
-            if "prog_ID" in self.tdict.keys():
+            if "prog_ID" in list(self.tdict.keys()):
                 return self.tdict["prog_ID"]['prime']
 
             return "---"
@@ -2909,7 +2909,7 @@ class ProgramNode():
             return self.config.cattrans_unknown
 
         elif key in self.config.key_values['text']:
-            return u''
+            return ''
 
         elif key in self.config.key_values['timedelta']:
             return datetime.timedelta(0)
@@ -2921,7 +2921,7 @@ class ProgramNode():
             return 0
 
         else:
-            return u''
+            return ''
 
     def get_detailsources(self, source = None):
         rval = {}
@@ -2962,21 +2962,21 @@ class ProgramNode():
         return self.channode.get_genre(self)
 
     def get_description(self):
-        desc_line = u''
+        desc_line = ''
         with self.node_lock:
             desc = self.get_value('description')
             if self.is_set('subgenre'):
                 sg = self.get_value('subgenre')
                 if sg != '' and sg.lower() != desc[:len(sg)].lower():
-                    desc_line = u'%s: ' % (sg.capitalize())
+                    desc_line = '%s: ' % (sg.capitalize())
 
             if self.is_set('broadcaster'):
                 bc = self.get_value('broadcaster')
                 if bc != '' and bc.lower() != desc[:len(bc)].lower() and bc.lower() != desc[1:len(bc)+1].lower():
-                    desc_line = u'%s(%s) ' % (desc_line, bc)
+                    desc_line = '%s(%s) ' % (desc_line, bc)
 
             if self.is_set('description'):
-                desc_line = u'%s%s ' % (desc_line, desc)
+                desc_line = '%s%s ' % (desc_line, desc)
 
             # Limit the length of the description
             if desc_line != '':
@@ -3111,7 +3111,7 @@ class XMLoutput():
         '''
         if isinstance(attribs, dict):
             a = ''
-            for k, v in attribs.items():
+            for k, v in list(attribs.items()):
                 a = '%s %s=%s' % (a, k, saxutils.quoteattr(v))
 
             attribs = a
@@ -3120,19 +3120,19 @@ class XMLoutput():
             attribs = ' %s' % attribs
 
         if close and text == '':
-            return u'%s<%s%s/>\n' % (''.rjust(ident), self.xmlescape(tag), attribs)
+            return '%s<%s%s/>\n' % (''.rjust(ident), self.xmlescape(tag), attribs)
 
         if close and text != '':
-            return u'%s<%s%s>%s</%s>\n' % (''.rjust(ident), self.xmlescape(tag), attribs, self.xmlescape(text), self.xmlescape(tag))
+            return '%s<%s%s>%s</%s>\n' % (''.rjust(ident), self.xmlescape(tag), attribs, self.xmlescape(text), self.xmlescape(tag))
 
         else:
-            return u'%s<%s%s>%s\n' % (''.rjust(ident), self.xmlescape(tag), attribs, self.xmlescape(text))
+            return '%s<%s%s>%s\n' % (''.rjust(ident), self.xmlescape(tag), attribs, self.xmlescape(text))
 
     def add_endtag(self, tag, ident = 0):
         '''
         Return a proper idented closing tag
         '''
-        return u'%s</%s>\n' % (''.rjust(ident), self.xmlescape(tag))
+        return '%s</%s>\n' % (''.rjust(ident), self.xmlescape(tag))
 
     def create_channel_strings(self, chanid, add_HD = None):
         '''
@@ -3150,7 +3150,7 @@ class XMLoutput():
         self.xml_channels[xmltvid].append(self.add_starttag('display-name', 4, {'lang': self.config.xml_language}, \
             self.config.channels[chanid].chan_name, True))
         if (self.config.channels[chanid].get_opt('logos')):
-            if self.config.channels[chanid].icon_source in self.logo_provider.keys():
+            if self.config.channels[chanid].icon_source in list(self.logo_provider.keys()):
                 lpath = self.logo_provider[self.config.channels[chanid].icon_source]
                 lname = self.config.channels[chanid].icon
                 if self.config.channels[chanid].icon_source == 5 and lpath[-16:] == 'ChannelLogos/02/':
@@ -3345,7 +3345,7 @@ class XMLoutput():
                 pr = program.get_value('rating')
                 kstring = ''
                 # First only one age limit from high to low
-                for k in self.config.rating['unique_codes'].keys():
+                for k in list(self.config.rating['unique_codes'].keys()):
                     if k in pr:
                         if self.config.opt_dict['ratingstyle'] == 'single':
                             kstring += (self.config.rating['unique_codes'][k]['code'] + ': ')
@@ -3363,7 +3363,7 @@ class XMLoutput():
                         break
 
                 # And only one of any of the others
-                for k in self.config.rating['addon_codes'].keys():
+                for k in list(self.config.rating['addon_codes'].keys()):
                     if k in pr:
                         if self.config.opt_dict['ratingstyle'] == 'single':
                             kstring += k.upper()
@@ -3398,36 +3398,36 @@ class XMLoutput():
         Compound the compleet XML output and return it
         '''
         if self.config.output == None:
-            startstring =[u'<?xml version="1.0" encoding="%s"?>\n' % self.config.logging.local_encoding]
+            startstring =['<?xml version="1.0" encoding="%s"?>\n' % self.config.logging.local_encoding]
 
         else:
-            startstring =[u'<?xml version="1.0" encoding="%s"?>\n' % self.xmlencoding]
+            startstring =['<?xml version="1.0" encoding="%s"?>\n' % self.xmlencoding]
 
-        startstring.append(u'<!DOCTYPE tv SYSTEM "xmltv.dtd">\n')
-        startstring.append(u'<tv generator-info-name="%s" generator-info-url="https://github.com/tvgrabbers/tvgrabnlpy">\n' % self.config.version(True, None))
-        closestring = u'</tv>\n'
+        startstring.append('<!DOCTYPE tv SYSTEM "xmltv.dtd">\n')
+        startstring.append('<tv generator-info-name="%s" generator-info-url="https://github.com/tvgrabbers/tvgrabnlpy">\n' % self.config.version(True, None))
+        closestring = '</tv>\n'
 
         xml = []
-        xml.append(u"".join(startstring))
+        xml.append("".join(startstring))
 
-        for channel in self.config.channels.values():
+        for channel in list(self.config.channels.values()):
             if channel.active and channel.xmltvid in self.xml_channels:
-                xml.append(u"".join(self.xml_channels[channel.xmltvid]))
+                xml.append("".join(self.xml_channels[channel.xmltvid]))
                 if channel.get_opt('add_hd_id') and '%s-hd' % (channel.xmltvid) in self.xml_channels:
-                    xml.append(u"".join(self.xml_channels['%s-hd' % channel.xmltvid]))
+                    xml.append("".join(self.xml_channels['%s-hd' % channel.xmltvid]))
 
-        for channel in self.config.channels.values():
+        for channel in list(self.config.channels.values()):
             if channel.active and channel.xmltvid in self.xml_programs:
                 for program in self.xml_programs[channel.xmltvid]:
-                    xml.append(u"".join(program))
+                    xml.append("".join(program))
 
                 if channel.get_opt('add_hd_id') and '%s-hd' % (channel.xmltvid) in self.xml_channels:
                     for program in self.xml_programs['%s-hd' % channel.xmltvid]:
-                        xml.append(u"".join(program))
+                        xml.append("".join(program))
 
         xml.append(closestring)
 
-        return u"".join(xml)
+        return "".join(xml)
 
     def print_string(self):
         '''
@@ -3437,7 +3437,7 @@ class XMLoutput():
 
         if xml != None:
             if self.config.output == None:
-                sys.stdout.write(xml.encode(self.config.logging.local_encoding, 'replace'))
+                sys.stdout.write(xml)
 
             else:
                 self.config.output.write(xml)

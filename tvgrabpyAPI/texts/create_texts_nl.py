@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals
@@ -635,7 +635,7 @@ def create_pickle(texts):
         os.remove(fle_name)
 
     print(u'Writing %s language file' % language)
-    fle = open(fle_name, 'w')
+    fle = open(fle_name, 'wb')
     text_dict = {}
     text_dict['lang'] = lang
     text_dict['language'] = language

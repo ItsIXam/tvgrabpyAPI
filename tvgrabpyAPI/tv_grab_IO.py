@@ -1,21 +1,22 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # Python 3 compatibility
-from __future__ import unicode_literals
+
 # from __future__ import print_function
 
 import codecs, locale, re, os, sys, io, shutil, difflib
 import traceback, smtplib, sqlite3, argparse, pickle
 import datetime, time, calendar, pytz
-import tv_grab_channel, tv_grab_config, test_json_struct
+from tvgrabpyAPI import tv_grab_channel, tv_grab_config
+import datatree.test_json_struct as test_json_struct
 from threading import Thread, Lock, RLock
 from threading import enumerate as enumthreads
-from Queue import Queue, Empty
+from queue import Queue, Empty
 from copy import deepcopy, copy
 from email.mime.text import MIMEText
 from xml.sax import saxutils
-from DataTreeGrab import *
+from datatree.datatreegrab import *
 
 
 class Functions():
@@ -36,12 +37,12 @@ class Functions():
 
         # If logging not (jet) available, make sure important messages go to the screen
         if (self.logging.log_output == None) and (log_level < 2) and (log_target & 1):
-            if isinstance(message, (str, unicode)):
-                sys.stderr.write(message.encode(self.logging.local_encoding, 'replace'))
+            if isinstance(message, str):
+                sys.stderr.write(message)
 
             elif isinstance(message, (list ,tuple)):
                 for m in message:
-                    sys.stderr.write(m.encode(self.logging.local_encoding, 'replace'))
+                    sys.stderr.write(m)
 
             if log_target & 2:
                 self.logging.log_queue.put([message, log_level, 2])
@@ -87,16 +88,13 @@ class Functions():
         """ Open a file and return a file handler if success """
         if encoding == None:
             encoding = self.default_file_encoding
-
         if 'r' in mode and not (os.path.isfile(file_name) and os.access(file_name, os.R_OK)):
             self.log(self.config.text('IO', 1, (file_name, )))
             return None
-
         if ('a' in mode or 'w' in mode):
             if os.path.isfile(file_name) and not os.access(file_name, os.W_OK):
                 self.log(self.config.text('IO', 1, (file_name, )))
                 return None
-
         try:
             if 'b' in mode:
                 file_handler =  io.open(file_name, mode = mode)
@@ -104,7 +102,6 @@ class Functions():
                 file_handler =  open(file_name, mode = mode)
             else:
                 file_handler =  io.open(file_name, mode = mode, encoding = encoding)
-
         except IOError as e:
             if e.errno == 2:
                 self.log(self.config.text('IO', 1, (file_name, )))
@@ -117,7 +114,7 @@ class Functions():
     # end open_file ()
 
     def read_pickle(self, file_name):
-        fle = self.open_file(file_name, 'r', 'pickle')
+        fle = self.open_file(file_name, 'rb', 'pickle')
         if fle != None:
             data = pickle.load(fle)
             fle.close()
@@ -328,7 +325,7 @@ class Logging(Thread):
                         for t in enumthreads():
                             tn = None
                             try:
-                                tn = unicode(t.name)
+                                tn = str(t.name)
 
                             except:
                                 tn = None
@@ -375,7 +372,7 @@ class Logging(Thread):
                     else:
                         mm = ['\n', self.config.text('IO', 12)]
 
-                    if isinstance(message['fatal'], (str, unicode)):
+                    if isinstance(message['fatal'], str):
                         mm.append(message['fatal'])
 
                     elif isinstance(message['fatal'], (list, tuple)):
@@ -383,13 +380,13 @@ class Logging(Thread):
 
                     mm.extend(self.fatal_error)
                     for m in mm:
-                        if isinstance(m, (str, unicode)):
+                        if isinstance(m, str):
                             self.writelog(m, 0)
 
                     close_all_threads()
                     continue
 
-                elif isinstance(message, (str, unicode)):
+                elif isinstance(message, str):
                     if message == 'Closing down\n':
                         close_all_threads()
 
@@ -433,13 +430,13 @@ class Logging(Thread):
                         else:
                             llevel = 65536
 
-                    if isinstance(message[0], (str, unicode)):
+                    if isinstance(message[0], str):
                         self.writelog(message[0], llevel, ltarget)
                         continue
 
                     elif isinstance(message[0], (list, tuple)):
                         for m in message[0]:
-                            if isinstance(m, (str, unicode)):
+                            if isinstance(m, str):
                                 self.writelog(m, llevel, ltarget)
 
                         continue
@@ -447,7 +444,7 @@ class Logging(Thread):
                 self.writelog(self.config.text('IO', 13, (message, type(message))))
 
             except:
-                sys.stderr.write((self.now() + u'An error occured while logging!\n').encode(self.local_encoding, 'replace'))
+                sys.stderr.write((self.now() + 'An error occured while logging!\n'))
                 traceback.print_exc()
 
     # end run()
@@ -500,7 +497,7 @@ class Logging(Thread):
                     elif state == 2:
                         # Waiting for a child channel source
                         s = t.source
-                        if not s in self.config.channels.keys():
+                        if not s in list(self.config.channels.keys()):
                             continue
 
                         sc = self.config.channels[s]
@@ -563,7 +560,7 @@ class Logging(Thread):
                  if waittime > idle_timeout2:
                     ttvdb_cnt = 0
                     if len(t.pending_tids) > 0:
-                        for ttvdbid, queryid in t.pending_tids.items():
+                        for ttvdbid, queryid in list(t.pending_tids.items()):
                             name = t.episodetrees[queryid].rundata['name']
                             self.config.log([self.config.text('fetch', 19, ('%s: %s' % (ttvdbid, name), ))])
                             if t.episodetrees[queryid].is_alive():
@@ -593,7 +590,7 @@ class Logging(Thread):
 
         t = self.config.ttvdb
         if t != None and t.is_alive():
-            for queryid in t.pending_tids.values():
+            for queryid in list(t.pending_tids.values()):
                 dtree = t.episodetrees[queryid]
                 if dtree.is_alive() and not dtree.searchtree.progress_queue.empty():
                     name = dtree.rundata['name']
@@ -612,7 +609,7 @@ class Logging(Thread):
 
             # If output is not yet available
             if (self.log_output == None) and (log_target & 1):
-                sys.stderr.write(('Error writing to log. Not (yet) available?\n').encode(self.local_encoding, 'replace'))
+                sys.stderr.write(('Error writing to log. Not (yet) available?\n'))
                 sys.stderr.write(message.encode(self.local_encoding, 'replace'))
                 return
 
@@ -622,7 +619,7 @@ class Logging(Thread):
 
             # Log to the screen
             elif log_level == 0 or ((not self.config.opt_dict['quiet']) and (log_level & self.config.opt_dict['log_level']) and (log_target & 1)):
-                sys.stderr.write(message.encode(self.local_encoding, 'replace'))
+                sys.stderr.write(message)
 
             # Log to the log-file
             if (log_level == 0 or ((log_level & self.config.opt_dict['log_level']) and (log_target & 2))) and self.log_output != None:
@@ -631,19 +628,19 @@ class Logging(Thread):
 
                     for i in range(len(message)):
                         if message[i] != '':
-                            self.log_output.write(self.now() + message[i] + u'\n')
+                            self.log_output.write(self.now() + message[i] + '\n')
                             if self.config.opt_dict['mail_log']:
-                                self.log_string.append(self.now() + message[i] + u'\n')
+                                self.log_string.append(self.now() + message[i] + '\n')
 
                 else:
-                    self.log_output.write(self.now() + message + u'\n')
+                    self.log_output.write(self.now() + message + '\n')
                     if self.config.opt_dict['mail_log']:
-                        self.log_string.append(self.now() + message + u'\n')
+                        self.log_string.append(self.now() + message + '\n')
 
                 self.log_output.flush()
 
         except:
-            sys.stderr.write((self.now() + 'An error ocured while logging!\n').encode(self.local_encoding, 'replace'))
+            sys.stderr.write((self.now() + 'An error ocured while logging!\n'))
             traceback.print_exc()
 
     # end writelog()
@@ -651,10 +648,10 @@ class Logging(Thread):
     def send_mail(self, message, mail_address, subject=None):
         try:
             if isinstance(message, (list,tuple)):
-                msg = u''.join(message)
+                msg = ''.join(message)
 
-            elif isinstance(message, (str,unicode)):
-                msg = unicode(message)
+            elif isinstance(message, str):
+                msg = str(message)
 
             else:
                 return
@@ -999,8 +996,8 @@ class ProgramCache(Thread):
                 self.table_definitions["episodes"]["fields"][key] = {"type": "listing", "null": True}
 
         self.field_list = {}
-        for table, data in self.table_definitions.items():
-            self.field_list[table] = data['fields'].keys()
+        for table, data in list(self.table_definitions.items()):
+            self.field_list[table] = list(data['fields'].keys())
 
         # where we store our info
         self.filename  = filename
@@ -1034,7 +1031,7 @@ class ProgramCache(Thread):
             return int(val.toordinal() - self.current_date.toordinal())
 
     def adapt_list(self, val):
-        if isinstance(val, (str, unicode)):
+        if isinstance(val, str):
             return val
 
         if not isinstance(val, (list, tuple, set)) or len(val) == 0:
@@ -1048,7 +1045,7 @@ class ProgramCache(Thread):
 
     def convert_list(self, val):
         ret_val = []
-        val = val.split(';')
+        val = val.decode().split(';')
         for k in val:
             ret_val.append(k)
 
@@ -1098,7 +1095,7 @@ class ProgramCache(Thread):
         if isinstance(val, (datetime.timedelta)):
             return int(val.total_seconds())
 
-        elif isinstance(val, (int, long)):
+        elif isinstance(val, int):
             return val
 
         else:
@@ -1128,24 +1125,24 @@ class ProgramCache(Thread):
             return None
 
     def get_tprop(self, table, tprop, default = None):
-        if table in self.table_definitions.keys():
-            if tprop in self.table_definitions[table].keys():
+        if table in list(self.table_definitions.keys()):
+            if tprop in list(self.table_definitions[table].keys()):
                 return self.table_definitions[table][tprop]
 
         return default
 
     def get_fields(self, table):
-        if table in self.table_definitions.keys():
-            if 'fields' in self.table_definitions[table].keys():
+        if table in list(self.table_definitions.keys()):
+            if 'fields' in list(self.table_definitions[table].keys()):
                 return list(self.table_definitions[table]['fields'].keys())
 
         return []
 
     def get_fprop(self, table, field, fprop, default = None):
-        if table in self.table_definitions.keys():
-            if 'fields' in self.table_definitions[table].keys():
-                if field in self.table_definitions[table]['fields'].keys():
-                    if fprop in self.table_definitions[table]['fields'][field].keys():
+        if table in list(self.table_definitions.keys()):
+            if 'fields' in list(self.table_definitions[table].keys()):
+                if field in list(self.table_definitions[table]['fields'].keys()):
+                    if fprop in list(self.table_definitions[table]['fields'][field].keys()):
                         return self.table_definitions[table]['fields'][field][fprop]
 
         return default
@@ -1154,7 +1151,7 @@ class ProgramCache(Thread):
         ftype = self.get_fprop(table, field, 'type', 'TEXT')
         fdefault =  self.get_fprop(table, field, 'default')
         fnullable = self.get_fprop(table, field, 'null', False)
-        dstring = u""
+        dstring = ""
         if fdefault != None:
             if ftype.upper() in ('INTEGER', 'DATE', 'DATETIME'):
                 if isinstance(fdefault, int):
@@ -1169,33 +1166,33 @@ class ProgramCache(Thread):
 
                     dstring = " DEFAULT %s" % (fdefault)
 
-            elif isinstance(fdefault, (str,unicode)):
+            elif isinstance(fdefault, str):
                 dstring = " DEFAULT '%s'" % (fdefault)
 
-        nstring = u"" if fnullable else " NOT NULL"
-        return u"`%s` %s%s%s" % (field, ftype, nstring, dstring)
+        nstring = "" if fnullable else " NOT NULL"
+        return "`%s` %s%s%s" % (field, ftype, nstring, dstring)
 
     def get_indexes(self, table):
-        if table in self.table_definitions.keys():
-            if 'indexes' in self.table_definitions[table].keys():
+        if table in list(self.table_definitions.keys()):
+            if 'indexes' in list(self.table_definitions[table].keys()):
                 return list(self.table_definitions[table]['indexes'].keys())
 
         return []
 
     def get_iprop(self, table, index, iprop, default = None):
-        if table in self.table_definitions.keys():
-            if 'indexes' in self.table_definitions[table].keys():
-                if index in self.table_definitions[table]['indexes'].keys():
-                    if iprop in self.table_definitions[table]['indexes'][index].keys():
+        if table in list(self.table_definitions.keys()):
+            if 'indexes' in list(self.table_definitions[table].keys()):
+                if index in list(self.table_definitions[table]['indexes'].keys()):
+                    if iprop in list(self.table_definitions[table]['indexes'][index].keys()):
                         return self.table_definitions[table]['indexes'][index][iprop]
 
         return default
 
     def get_ifields(self, table, index):
-        if table in self.table_definitions.keys():
-            if 'indexes' in self.table_definitions[table].keys():
-                if index in self.table_definitions[table]['indexes'].keys():
-                    if 'fields' in self.table_definitions[table]['indexes'][index].keys():
+        if table in list(self.table_definitions.keys()):
+            if 'indexes' in list(self.table_definitions[table].keys()):
+                if index in list(self.table_definitions[table]['indexes'].keys()):
+                    if 'fields' in list(self.table_definitions[table]['indexes'][index].keys()):
                         return self.table_definitions[table]['indexes'][index]['fields']
 
         return []
@@ -1223,7 +1220,7 @@ class ProgramCache(Thread):
         # Check the directory
         if not os.path.exists(os.path.dirname(self.filename)):
             try:
-                os.makedirs(os.path.dirname(self.filename), 0755)
+                os.makedirs(os.path.dirname(self.filename), 755)
                 self.load_db
                 return
 
@@ -1299,9 +1296,9 @@ class ProgramCache(Thread):
                     self.clear(t)
 
             # We Check all Tables, Columns and Indices
-            for t in self.table_definitions.keys():
+            for t in list(self.table_definitions.keys()):
                 if self. print_data_structure:
-                    print t
+                    print(t)
 
                 # (cid, Name, Type, Nullable = 0, Default, Pri_key index)
                 trows = self.fetchall("PRAGMA main.table_info('%s')" % (t,))
@@ -1315,14 +1312,14 @@ class ProgramCache(Thread):
                     for r in trows:
                         clist[r[1].lower()] = r
                         if self. print_data_structure:
-                            print '  ', r
+                            print(('  ', r))
 
                     self.check_columns(t, clist)
 
                 self.check_indexes(t)
 
             # We add if not jet there some defaults
-            for a, t in self.config.ttvdb_ids.items():
+            for a, t in list(self.config.ttvdb_ids.items()):
                 if self.query('ttvdb_alias', alias = a) == None:
                     self.add('ttvdb_alias',
                                     {'tid': t['tid'],
@@ -1336,62 +1333,62 @@ class ProgramCache(Thread):
             self.config.opt_dict['disable_ttvdb'] = True
 
     def create_table(self, table):
-        if not table in self.table_definitions.keys():
+        if not table in list(self.table_definitions.keys()):
             return
 
         if self. print_data_structure:
-            print 'creating table', table
+            print(('creating table', table))
 
-        create_string = u"CREATE TABLE IF NOT EXISTS %s" % table
-        psplit = u" ("
+        create_string = "CREATE TABLE IF NOT EXISTS %s" % table
+        psplit = " ("
         for fld in self.get_fields(table):
-            create_string = u"%s%s%s" % (create_string, psplit, self.get_column_string(table, fld))
-            psplit = u", "
+            create_string = "%s%s%s" % (create_string, psplit, self.get_column_string(table, fld))
+            psplit = ", "
 
         pkfields = self.get_ifields(table, 'PRIMARY')
-        pkstring = u")"
+        pkstring = ")"
         if len(pkfields) > 0:
-            pkstring = u", PRIMARY KEY"
-            psplit = u" ("
+            pkstring = ", PRIMARY KEY"
+            psplit = " ("
             for fld in pkfields:
                 if not fld in self.get_fields(table):
                     continue
 
-                pkstring += u"%s`%s`"% (psplit, fld)
-                psplit = u", "
+                pkstring += "%s`%s`"% (psplit, fld)
+                psplit = ", "
 
             if self.get_iprop(table, 'PRIMARY', "on conflict", '').upper() in ('ROLLBACK', 'ABORT', 'FAIL', 'IGNORE', 'REPLACE'):
-                pkstring += u") ON CONFLICT %s)" % self.get_iprop(table, 'PRIMARY', "on conflict", '').upper()
+                pkstring += ") ON CONFLICT %s)" % self.get_iprop(table, 'PRIMARY', "on conflict", '').upper()
 
             else:
-                pkstring += u"))"
+                pkstring += "))"
 
-        create_string = u"%s%s"% (create_string, pkstring)
+        create_string = "%s%s"% (create_string, pkstring)
         if self.get_tprop(table, "no rowid") and sqlite3.sqlite_version_info >= (3, 8, 2):
-            create_string += u" WITHOUT ROWID"
+            create_string += " WITHOUT ROWID"
 
         self.execute(create_string)
         self.check_indexes(table)
 
     def check_columns(self, table, clist):
-        if not table in self.table_definitions.keys():
+        if not table in list(self.table_definitions.keys()):
             return
 
         for fld in self.get_fields(table):
-            if fld.lower() not in clist.keys():
+            if fld.lower() not in list(clist.keys()):
                 if fld in self.get_ifields(table, 'PRIMARY'):
                     if self. print_data_structure:
-                        print 'dropping table', table
+                        print(('dropping table', table))
 
-                    self.execute(u"DROP TABLE IF EXISTS %s" % (table,))
+                    self.execute("DROP TABLE IF EXISTS %s" % (table,))
                     self.create_table(table)
                     return
 
                 else:
                     if self. print_data_structure:
-                        print '  adding field',  fld, 'to', table
+                        print(('  adding field',  fld, 'to', table))
 
-                    self.execute(u"ALTER TABLE %s ADD %s" % (table, self.get_column_string(table, fld)))
+                    self.execute("ALTER TABLE %s ADD %s" % (table, self.get_column_string(table, fld)))
 
     def check_indexes(self, table):
         # (id, name, UNIQUE, c(reate)/u(nique)/p(rimary)k(ey), Partial)
@@ -1406,33 +1403,33 @@ class ProgramCache(Thread):
 
         for index in self.get_indexes(table):
             iname = '%s_%s' % (table.lower(), index.lower())
-            if iname not in ilist.keys():
+            if iname not in list(ilist.keys()):
                 self.add_index(table, index)
 
             else:
                 # Adding Index field test
                 if self. print_data_structure:
-                    print '    ', ilist[iname]
+                    print(('    ', ilist[iname]))
                     iflds = {}
                     for r in self.fetchall("PRAGMA main.index_info(%s)" % (ilist[iname][1],)):
-                        print '      ', r
+                        print(('      ', r))
 
     def add_index(self, table, index):
         if not index in self.get_indexes(table):
             return
 
         if self. print_data_structure:
-            print '    adding index',  index, 'to', table
+            print(('    adding index',  index, 'to', table))
 
         iname = '%s_%s' % (table.lower(), index.lower())
-        ustring =u" UNIQUE" if self.get_iprop(table, index, "unique", False) else ""
-        istring = u"CREATE%s INDEX IF NOT EXISTS '%s' ON %s" % (ustring, iname, table)
-        psplit = u" ("
+        ustring =" UNIQUE" if self.get_iprop(table, index, "unique", False) else ""
+        istring = "CREATE%s INDEX IF NOT EXISTS '%s' ON %s" % (ustring, iname, table)
+        psplit = " ("
         for fld in self.get_ifields(table, index):
-            istring += u"%s`%s`" % (psplit, fld)
-            psplit = u", "
+            istring += "%s`%s`" % (psplit, fld)
+            psplit = ", "
 
-        self.execute(u"%s)" % (istring))
+        self.execute("%s)" % (istring))
 
     def run(self):
         time.sleep(1)
@@ -1456,7 +1453,7 @@ class ProgramCache(Thread):
                     continue
 
                 if crequest['task'] == 'query':
-                    if not ('parent' in crequest.keys() or 'queue' in crequest.keys()):
+                    if not ('parent' in list(crequest.keys()) or 'queue' in list(crequest.keys())):
                         continue
 
                     if self.filename == None:
@@ -1464,8 +1461,8 @@ class ProgramCache(Thread):
                         qanswer = None
 
                     else:
-                        for t, v in crequest.items():
-                            if t in self.request_list[crequest['task']] or t in self.table_definitions.keys():
+                        for t, v in list(crequest.items()):
+                            if t in self.request_list[crequest['task']] or t in list(self.table_definitions.keys()):
                                 self.state = 3
                                 qanswer = self.query(t, **v)
                                 # Because of queue count integrety you can do only one query per call
@@ -1476,10 +1473,10 @@ class ProgramCache(Thread):
 
                         else:
                             qanswer = None
-                    if 'queue' in crequest.keys():
+                    if 'queue' in list(crequest.keys()):
                         crequest['queue'].put(qanswer)
 
-                    elif 'parent' in crequest.keys():
+                    elif 'parent' in list(crequest.keys()):
                         crequest['parent'].cache_return.put(qanswer)
 
                     self.state = 4
@@ -1490,8 +1487,8 @@ class ProgramCache(Thread):
                     continue
 
                 if crequest['task'] == 'add':
-                    for t, v in crequest.items():
-                        if t in self.request_list[crequest['task']] or t in self.table_definitions.keys():
+                    for t, v in list(crequest.items()):
+                        if t in self.request_list[crequest['task']] or t in list(self.table_definitions.keys()):
                             self.state = 3
                             if isinstance(v, (list, tuple)):
                                 self.add(t, *v)
@@ -1503,8 +1500,8 @@ class ProgramCache(Thread):
                             self.config.infofiles.add_sql('Unknown request', crequest['task'], t, v)
 
                 if crequest['task'] == 'update':
-                    for t, v in crequest.items():
-                        if t in self.request_list[crequest['task']] or t in self.table_definitions.keys():
+                    for t, v in list(crequest.items()):
+                        if t in self.request_list[crequest['task']] or t in list(self.table_definitions.keys()):
                             self.state = 3
                             self.update(t, **v)
 
@@ -1512,8 +1509,8 @@ class ProgramCache(Thread):
                             self.config.infofiles.add_sql('Unknown request', crequest['task'], t, v)
 
                 if crequest['task'] == 'delete':
-                    for t, v in crequest.items():
-                        if t in self.request_list[crequest['task']] or t in self.table_definitions.keys():
+                    for t, v in list(crequest.items()):
+                        if t in self.request_list[crequest['task']] or t in list(self.table_definitions.keys()):
                             self.state = 3
                             self.delete(t, **v)
 
@@ -1548,11 +1545,11 @@ class ProgramCache(Thread):
                     self.quit = True
                     continue
 
-                if 'confirm' in crequest.keys():
-                    if 'queue' in crequest.keys():
+                if 'confirm' in list(crequest.keys()):
+                    if 'queue' in list(crequest.keys()):
                         crequest['queue'].put(crequest['confirm'])
 
-                    elif 'parent' in crequest.keys():
+                    elif 'parent' in list(crequest.keys()):
                         crequest['parent'].cache_return.put(crequest['confirm'])
 
                 self.state = 4
@@ -1574,7 +1571,7 @@ class ProgramCache(Thread):
                                 tid = data_value('tid', i, int, 0),
                                 sid = data_value(['sid'], i, int, -1),
                                 eid = data_value(['eid'], i, int, -1))):
-                    if not r[str('title')] in pp.keys():
+                    if not r[str('title')] in list(pp.keys()):
                         pp[r[str('title')]] = []
 
                     if r[str('title')] in ('actor', 'guest'):
@@ -1587,7 +1584,7 @@ class ProgramCache(Thread):
 
         def make_sql(table, *select, **where):
             no_validation = where.pop('no_validation', False)
-            if not (no_validation or table in self.table_definitions.keys()):
+            if not (no_validation or table in list(self.table_definitions.keys())):
                 return []
 
             if len(select) == 0:
@@ -1620,7 +1617,7 @@ class ProgramCache(Thread):
                 return [sqlstr[:-6]]
 
             sqllist = []
-            for k, v in where.items():
+            for k, v in list(where.items()):
                 if no_validation or k in self.field_list[table]:
                     if isinstance(v, tuple) and len(v) > 1:
                         t = '' if len(v) < 3 else '%s.' % v[2]
@@ -1767,7 +1764,7 @@ class ProgramCache(Thread):
                 return scids
 
         elif table == 'use_alt_url':
-            if not 'sourceid'in item.keys():
+            if not 'sourceid'in list(item.keys()):
                 return
 
             r = self.fetchone(*make_sql('sources', 'use_alt_url',
@@ -1815,11 +1812,11 @@ class ProgramCache(Thread):
             r = self.fetchone(*make_sql('ttvdb_alias', 'tid', 'name',
                             alias = ('lower', item[ 'alias'].lower())))
             if r != None:
-                if 'tid' in item.keys():
+                if 'tid' in list(item.keys()):
                     if item['tid'] == r[0]:
                         return True
 
-                elif 'name' in item.keys():
+                elif 'name' in list(item.keys()):
                     if item['name'] == r[1]:
                         return True
 
@@ -1914,7 +1911,7 @@ class ProgramCache(Thread):
             for s in r:
                 tepid = int(s[str('tepid')])
                 lang = s[str('lang')]
-                if not tepid in series[tid].keys():
+                if not tepid in list(series[tid].keys()):
                     sid = int(s[str('sid')])
                     eid = int(s[str('eid')])
                     series[tid][tepid] = {'tid': tid,
@@ -1927,8 +1924,8 @@ class ProgramCache(Thread):
                                         'episode title': {},
                                         'description': {}}
 
-                    for k, v in get_ttvdbcredits({'tid': tid},
-                            {'tid': tid, 'sid': sid, 'eid': eid}).items():
+                    for k, v in list(get_ttvdbcredits({'tid': tid},
+                            {'tid': tid, 'sid': sid, 'eid': eid}).items()):
                         series[tid][tepid][k] = v
 
                 series[tid][tepid]['episode title'][lang] = s[str('episode title')]
@@ -1946,7 +1943,7 @@ class ProgramCache(Thread):
             for s in r:
                 tepid = int(s[str('tepid')])
                 lang = s[str('lang')]
-                if not tepid in series[tid].keys():
+                if not tepid in list(series[tid].keys()):
                     sid = int(s[str('sid')])
                     eid = int(s[str('eid')])
                     series[tid][tepid] = {'tid': tid,
@@ -1959,8 +1956,8 @@ class ProgramCache(Thread):
                                         'episode title': {},
                                         'description': {}}
 
-                    for k, v in get_ttvdbcredits({'tid': tid},
-                            {'tid': tid, 'sid': sid, 'eid': eid}).items():
+                    for k, v in list(get_ttvdbcredits({'tid': tid},
+                            {'tid': tid, 'sid': sid, 'eid': eid}).items()):
                         series[tid][tepid][k] = v
 
                 series[tid][tepid]['episode title'][lang] = s[str('episode title')]
@@ -2020,7 +2017,7 @@ class ProgramCache(Thread):
                                 sourceid = item['sourceid']))
 
             rv = {}
-            for k in r.keys():
+            for k in list(r.keys()):
                 rv[k] = r[k]
 
             return rv
@@ -2030,7 +2027,7 @@ class ProgramCache(Thread):
                 return
 
             programs = []
-            if "scandate" in item.keys():
+            if "scandate" in list(item.keys()):
                 if isinstance(item["scandate"], (datetime.date, int)):
                     item["scandate"] = [item["scandate"]]
 
@@ -2048,7 +2045,7 @@ class ProgramCache(Thread):
                                         sourceid = item['sourceid'],
                                         channelid = item['channelid'])))
 
-            elif "start-time" in item.keys():
+            elif "start-time" in list(item.keys()):
                 if isinstance(item["start-time"], datetime.datetime):
                     item["start-time"] = [item["start-time"]]
 
@@ -2062,8 +2059,8 @@ class ProgramCache(Thread):
                                         'sourceid': item['sourceid'],
                                         'channelid': item['channelid']})))
 
-            elif "prog_ID" in item.keys():
-                if isinstance(item["prog_ID"], (str, unicode)):
+            elif "prog_ID" in list(item.keys()):
+                if isinstance(item["prog_ID"], str):
                     item["prog_ID"] = [item["prog_ID"]]
 
                 if isinstance(item["prog_ID"], list):
@@ -2073,7 +2070,7 @@ class ProgramCache(Thread):
                                         sourceid = item['sourceid'],
                                         channelid = item['channelid'])))
 
-            elif "range" in item.keys():
+            elif "range" in list(item.keys()):
                 if isinstance(item['range'], dict):
                     item['range'] = [item['range']]
 
@@ -2084,21 +2081,21 @@ class ProgramCache(Thread):
                     if not isinstance(fr, dict):
                         continue
 
-                    if 'start' in fr.keys() and isinstance(fr['start'], datetime.datetime) and \
-                        'stop' in fr.keys() and  isinstance(fr['stop'], datetime.datetime):
+                    if 'start' in list(fr.keys()) and isinstance(fr['start'], datetime.datetime) and \
+                        'stop' in list(fr.keys()) and  isinstance(fr['stop'], datetime.datetime):
                         programs.extend(self.fetchall(*make_sql('sourceprograms',
                                         **{'start-time': ('le',fr['start']),
                                         'stop-time': ('ge', fr['stop']),
                                         'sourceid': item['sourceid'],
                                         'channelid': item['channelid']})))
 
-                    elif 'stop' in fr.keys() and isinstance(fr['stop'], datetime.datetime):
+                    elif 'stop' in list(fr.keys()) and isinstance(fr['stop'], datetime.datetime):
                         programs.extend(self.fetchall(*make_sql('sourceprograms',
                                         **{'stop-time': ('ge', fr['stop']),
                                         'sourceid': item['sourceid'],
                                         'channelid': item['channelid']})))
 
-                    elif 'start' in fr.keys() and isinstance(fr['start'], datetime.datetime):
+                    elif 'start' in list(fr.keys()) and isinstance(fr['start'], datetime.datetime):
                         programs.extend(self.fetchall(*make_sql('sourceprograms',
                                         **{'start-time': ('le', fr['start']),
                                         'sourceid': item['sourceid'],
@@ -2112,21 +2109,21 @@ class ProgramCache(Thread):
             programs2 = []
             for p in programs:
                 pp = {}
-                for key in p.keys():
+                for key in list(p.keys()):
                     if p[key] == None:
                         continue
 
-                    elif key in self.config.key_values['text'] and isinstance(p[key], (str, unicode)):
-                        pp[unicode(key)] = p[key].strip()
+                    elif key in self.config.key_values['text'] and isinstance(p[key], str):
+                        pp[str(key)] = p[key].strip()
 
                     else:
-                        pp[unicode(key)] = p[key]
+                        pp[str(key)] = p[key]
 
                 for r in self.fetchall(*make_sql('credits',
                                 **{'start-time': pp['start-time'],
                                 'sourceid': item['sourceid'],
                                 'channelid': item['channelid']})):
-                    if not r[str('title')] in pp.keys():
+                    if not r[str('title')] in list(pp.keys()):
                         pp[r[str('title')]] = []
 
                     if r[str('title')] in ('actor', 'guest'):
@@ -2144,13 +2141,13 @@ class ProgramCache(Thread):
                 return
 
             programs = []
-            if "prog_ID" in item.keys():
-                if isinstance(item["prog_ID"], (str, unicode)):
+            if "prog_ID" in list(item.keys()):
+                if isinstance(item["prog_ID"], str):
                     item["prog_ID"] = [item["prog_ID"]]
 
                 if isinstance(item["prog_ID"], list):
                     for sd in item["prog_ID"]:
-                        if not isinstance(sd, (str, unicode)):
+                        if not isinstance(sd, str):
                             continue
 
                         p = self.fetchone(*make_sql('programdetails',
@@ -2160,7 +2157,7 @@ class ProgramCache(Thread):
                         if p != None:
                             programs.append(p)
 
-            elif "start-time" in item.keys():
+            elif "start-time" in list(item.keys()):
                 if isinstance(item["start-time"], datetime.datetime):
                     item["start-time"] = [item["start-time"]]
 
@@ -2184,22 +2181,22 @@ class ProgramCache(Thread):
             programs2 = []
             for p in programs:
                 pp = {}
-                for key in p.keys():
+                for key in list(p.keys()):
                     if p[key] == None:
                         continue
 
-                    elif key in self.config.key_values['text'] and isinstance(p[key], (str, unicode)):
-                        pp[unicode(key)] = p[key].strip()
+                    elif key in self.config.key_values['text'] and isinstance(p[key], str):
+                        pp[str(key)] = p[key].strip()
 
                     else:
-                        pp[unicode(key)] = p[key]
+                        pp[str(key)] = p[key]
 
                 for r in self.fetchall(*make_sql('creditdetails',
                                 prog_ID = pp['prog_ID'],
                                 sourceid = item['sourceid'],
                                 channelid = item['channelid'])):
 
-                    if not r[str('title')] in pp.keys():
+                    if not r[str('title')] in list(pp.keys()):
                         pp[r[str('title')]] = []
 
                     if r[str('title')] in ('actor', 'guest'):
@@ -2239,8 +2236,8 @@ class ProgramCache(Thread):
                             tid = tid))
             serie = {tid:{}}
             if r != None:
-                for key in r.keys():
-                    serie[tid][unicode(key)] = r[key]
+                for key in list(r.keys()):
+                    serie[tid][str(key)] = r[key]
 
                 serie[tid]['name'] = {}
                 serie[tid]['description'] = {}
@@ -2250,12 +2247,12 @@ class ProgramCache(Thread):
                     serie[tid]['name'][lang]  = r[str('name')]
                     serie[tid]['description'][lang]  = r[str('description')]
 
-                for k, v in get_ttvdbcredits({'tid': tid}).items():
+                for k, v in list(get_ttvdbcredits({'tid': tid}).items()):
                     serie[tid][k] = v
 
             return serie
 
-        elif table in self.table_definitions.keys():
+        elif table in list(self.table_definitions.keys()):
             select = data_value(['select'], item, list)
             where = data_value(['where'], item, dict)
             r = self.fetchall(*make_sql(table, *select, **where))
@@ -2263,8 +2260,8 @@ class ProgramCache(Thread):
             if r != None:
                 for rec in r:
                     rv = {}
-                    for key in rec.keys():
-                        rv[unicode(key)] = rec[key]
+                    for key in list(rec.keys()):
+                        rv[str(key)] = rec[key]
 
                     retvals.append(rv)
 
@@ -2272,7 +2269,7 @@ class ProgramCache(Thread):
 
     def add(self, table, *item):
         def get_value(tbl, fld, **data):
-            if fld in data.keys():
+            if fld in list(data.keys()):
                 return data[fld]
 
             elif self.get_fprop(tbl, fld, 'null', False):
@@ -2285,18 +2282,18 @@ class ProgramCache(Thread):
             if not tbl in self.field_list:
                 return
 
-            sql_flds = u"INSERT INTO %s (`%s`" % (tbl, self.field_list[tbl][0])
-            sql_cnt = u"VALUES (?"
+            sql_flds = "INSERT INTO %s (`%s`" % (tbl, self.field_list[tbl][0])
+            sql_cnt = "VALUES (?"
             for f in self.field_list[tbl][1:]:
-                sql_flds = u"%s, `%s`" % (sql_flds, f)
-                sql_cnt = u"%s, ?" % (sql_cnt)
+                sql_flds = "%s, `%s`" % (sql_flds, f)
+                sql_cnt = "%s, ?" % (sql_cnt)
 
-            return u"%s) %s)" % (sql_flds, sql_cnt)
+            return "%s) %s)" % (sql_flds, sql_cnt)
 
         def make_val_list(tbl, **data):
             if self.config.write_info_files:
                 invalid = {}
-                for f, v in data.items():
+                for f, v in list(data.items()):
                     if f not in self.field_list[tbl] and f not in ('genres', 'from cache', 'title', 'source', 'channel'):
                         invalid[f] = v
 
@@ -2313,16 +2310,16 @@ class ProgramCache(Thread):
             keyvalues = {}
             credits = []
             for k in self.field_list[tbl]:
-                if k in values.keys():
+                if k in list(values.keys()):
                     keyvalues[k] = values[k]
 
             for f in self.config.key_values['credits']:
-                if f in values.keys():
+                if f in list(values.keys()):
                     for cr in values[f]:
                         crd = keyvalues.copy()
                         crd['title'] = f
                         crd['role'] = None
-                        if isinstance(cr, (str, unicode)):
+                        if isinstance(cr, str):
                             crd['name'] = cr
 
                         elif isinstance(cr, dict):
@@ -2349,8 +2346,8 @@ class ProgramCache(Thread):
                 return
 
             item = item[0]
-            if not isinstance(item, dict) or not "sourceid" in item.keys() or not "channelid" in item.keys() \
-                or not "laststop" in item.keys() or not isinstance(item['laststop'], datetime.datetime):
+            if not isinstance(item, dict) or not "sourceid" in list(item.keys()) or not "channelid" in list(item.keys()) \
+                or not "laststop" in list(item.keys()) or not isinstance(item['laststop'], datetime.datetime):
                 return
 
             laststop = self.query('laststop',
@@ -2370,8 +2367,8 @@ class ProgramCache(Thread):
                 return
 
             item = item[0]
-            if not isinstance(item, dict) or not "sourceid" in item.keys() or \
-                not "channelid" in item.keys() or not "scandate" in item.keys():
+            if not isinstance(item, dict) or not "sourceid" in list(item.keys()) or \
+                not "channelid" in list(item.keys()) or not "scandate" in list(item.keys()):
                 return
 
             sdate = self.query('fetcheddays',
@@ -2389,7 +2386,7 @@ class ProgramCache(Thread):
                     if not isinstance(sd, datetime.date):
                         continue
 
-                    if not sd in sdate.keys() or sdate[sd] == None:
+                    if not sd in list(sdate.keys()) or sdate[sd] == None:
                         values = item.copy()
                         values.update(scandate = sd, stored = dval)
                         rec.append(make_val_list('fetcheddays', **values))
@@ -2435,14 +2432,14 @@ class ProgramCache(Thread):
                 return
 
             item = item[0]
-            if isinstance(item, dict) and "sourceid" in item.keys():
+            if isinstance(item, dict) and "sourceid" in list(item.keys()):
                 self.execute(make_add_string('sources'), make_val_list('sources', **item))
 
         elif table == 'channel':
             g = self.query('chan_group')
 
             for c in item:
-                if not c['chanid'] in g.keys():
+                if not c['chanid'] in list(g.keys()):
                     rec.append(make_val_list('channels', **c))
 
                 elif g[c['chanid']]['name'].lower() != c['name'].lower() or \
@@ -2496,8 +2493,8 @@ class ProgramCache(Thread):
         elif table == 'ttvdb':
             added_tids = []
             for p in item:
-                if not isinstance(p, dict) or not 'tid' in p.keys() or \
-                    not 'lang' in p.keys() or not 'name' in p.keys():
+                if not isinstance(p, dict) or not 'tid' in list(p.keys()) or \
+                    not 'lang' in list(p.keys()) or not 'name' in list(p.keys()):
                     continue
 
                 p['tdate'] = datetime.date.today()
@@ -2508,7 +2505,7 @@ class ProgramCache(Thread):
                 rec2.extend(get_credits('ttvdbcredits', **p))
                 rec3.append(make_val_list('ttvdbint', **p))
                 for f in self.config.key_values['metadata']:
-                    if f in p.keys():
+                    if f in list(p.keys()):
                         sql_vals = make_val_list('ttvdbmetadata',
                                         tid = p['tid'],
                                         type = f,
@@ -2530,10 +2527,10 @@ class ProgramCache(Thread):
                 return
 
             item = item[0]
-            if not isinstance(item, dict) or not 'tid' in item.keys():
+            if not isinstance(item, dict) or not 'tid' in list(item.keys()):
                 return
 
-            if not 'tdate' in item.keys() or item[ 'tdate'] == None:
+            if not 'tdate' in list(item.keys()) or item[ 'tdate'] == None:
                 item[ 'tdate'] = datetime.date.today()
 
             aliasses = self.query('ttvdb_aliasses',
@@ -2553,8 +2550,8 @@ class ProgramCache(Thread):
         elif table == 'episodes':
             added_tepids = []
             for p in item:
-                if not isinstance(p, dict) or not 'tid' in p.keys() or \
-                    not 'lang' in p.keys() or not 'episode title' in p.keys():
+                if not isinstance(p, dict) or not 'tid' in list(p.keys()) or \
+                    not 'lang' in list(p.keys()) or not 'episode title' in list(p.keys()):
                     continue
 
                 p['tdate'] = datetime.date.today()
@@ -2565,7 +2562,7 @@ class ProgramCache(Thread):
                 rec2.extend(get_credits('ttvdbcredits', **p))
                 rec3.append(make_val_list('episodesint', **p))
                 for f in self.config.key_values['metadata']:
-                    if f in p.keys():
+                    if f in list(p.keys()):
                         sql_vals = make_val_list('ttvdbmetadata',
                                         tid = p['tid'],
                                         sid = p['sid'],
@@ -2586,7 +2583,7 @@ class ProgramCache(Thread):
 
         elif table == 'epcount':
             for p in item:
-                if not isinstance(p, dict) or not 'tid' in p.keys() or not 'sid' in p.keys() or not 'count' in p.keys():
+                if not isinstance(p, dict) or not 'tid' in list(p.keys()) or not 'sid' in list(p.keys()) or not 'count' in list(p.keys()):
                     continue
 
                 rec.append(make_val_list('epcount', **p))
@@ -2594,7 +2591,7 @@ class ProgramCache(Thread):
             if len(rec) > 0:
                 self.execute(make_add_string('epcount'), *rec)
 
-        elif table in self.table_definitions.keys():
+        elif table in list(self.table_definitions.keys()):
             for c in item:
                 rec.append(make_val_list(table, **c))
 
@@ -2603,7 +2600,7 @@ class ProgramCache(Thread):
 
     def update(self, table, **item):
         if table == 'toggle_alt_url':
-            if not 'sourceid'in item.keys():
+            if not 'sourceid'in list(item.keys()):
                 return
 
             uau=self.query('use_alt_url',
@@ -2612,23 +2609,23 @@ class ProgramCache(Thread):
                             set = {'use_alt_url': not uau},
                             where = {'sourceid': item['sourceid']})
 
-        elif table in self.table_definitions.keys():
+        elif table in list(self.table_definitions.keys()):
             wfields = item.get('where', None)
             sfields = item.get('set', None)
-            if not (table in self.table_definitions.keys() and isinstance(wfields, dict) and isinstance(wfields, dict)):
+            if not (table in list(self.table_definitions.keys()) and isinstance(wfields, dict) and isinstance(wfields, dict)):
                 self.config.log([self.config.text('IO', 26), '%s:%s\n' % (table, item)])
                 return
 
             w_string =  "WHERE "
             w_list = []
-            for k, v in wfields.items():
+            for k, v in list(wfields.items()):
                 if k in self.field_list[table]:
                     w_string = '%s `%s` = ? AND ' % (w_string, k)
                     w_list.append(v)
 
             s_string = "UPDATE %s SET" % table
             s_list = []
-            for k, v in sfields.items():
+            for k, v in list(sfields.items()):
                 if k in self.field_list[table]:
                     s_string = '%s `%s` = ?,' % (s_string, k)
                     s_list.append(v)
@@ -2642,8 +2639,8 @@ class ProgramCache(Thread):
 
     def delete(self, table, **item):
         if table == 'sourceprograms':
-            if "sourceid" in item.keys() and "channelid" in item.keys():
-                if "scandate" in item.keys():
+            if "sourceid" in list(item.keys()) and "channelid" in list(item.keys()):
+                if "scandate" in list(item.keys()):
                     if isinstance(item["scandate"], (datetime.date, int)):
                         item["scandate"] = [item["scandate"]]
 
@@ -2655,14 +2652,14 @@ class ProgramCache(Thread):
 
                             rec.append((item['sourceid'], item['channelid'], sd))
 
-                        self.execute(u"DELETE FROM fetcheddays " + \
+                        self.execute("DELETE FROM fetcheddays " + \
                             "WHERE sourceid = ? AND channelid = ? AND scandate = ?", *rec)
-                        self.execute(u"DELETE FROM credits " + \
+                        self.execute("DELETE FROM credits " + \
                             "WHERE sourceid = ? AND channelid = ? AND scandate = ?", *rec)
-                        self.execute(u"DELETE FROM sourceprograms " + \
+                        self.execute("DELETE FROM sourceprograms " + \
                             "WHERE sourceid = ? AND channelid = ? AND scandate = ?", *rec)
 
-                elif "start-time" in item.keys():
+                elif "start-time" in list(item.keys()):
                     if isinstance(item["start-time"], datetime.datetime):
                         item["start-time"] = [item["start-time"]]
 
@@ -2672,49 +2669,49 @@ class ProgramCache(Thread):
                             if isinstance(sd, datetime.datetime):
                                 rec.append((item['sourceid'], item['channelid'], sd))
 
-                        self.execute(u"DELETE FROM credits " + \
+                        self.execute("DELETE FROM credits " + \
                                 "WHERE sourceid = ? AND channelid = ? AND `start-time` = ?", *rec)
-                        self.execute(u"DELETE FROM sourceprograms " + \
+                        self.execute("DELETE FROM sourceprograms " + \
                                 "WHERE sourceid = ? AND channelid = ? AND `start-time` = ?", *rec)
 
                 else:
-                    self.execute(u"DELETE FROM fetcheddata WHERE sourceid = ? AND channelid = ?",
+                    self.execute("DELETE FROM fetcheddata WHERE sourceid = ? AND channelid = ?",
                         (item['sourceid'], item['channelid']))
-                    self.execute(u"DELETE FROM fetcheddays WHERE sourceid = ? AND channelid = ?",
+                    self.execute("DELETE FROM fetcheddays WHERE sourceid = ? AND channelid = ?",
                         (item['sourceid'], item['channelid']))
-                    self.execute(u"DELETE FROM credits WHERE sourceid = ? AND channelid = ?",
+                    self.execute("DELETE FROM credits WHERE sourceid = ? AND channelid = ?",
                         (item['sourceid'], item['channelid']))
-                    self.execute(u"DELETE FROM sourceprograms WHERE sourceid = ? AND channelid = ?",
+                    self.execute("DELETE FROM sourceprograms WHERE sourceid = ? AND channelid = ?",
                         (item['sourceid'], item['channelid']))
 
-            elif "sourceid" in item.keys():
-                    self.execute(u"DELETE FROM fetcheddata WHERE sourceid = ?",
+            elif "sourceid" in list(item.keys()):
+                    self.execute("DELETE FROM fetcheddata WHERE sourceid = ?",
                         (item['sourceid'], ))
-                    self.execute(u"DELETE FROM fetcheddays WHERE sourceid = ?",
+                    self.execute("DELETE FROM fetcheddays WHERE sourceid = ?",
                         (item['sourceid'], ))
-                    self.execute(u"DELETE FROM credits WHERE sourceid = ?",
+                    self.execute("DELETE FROM credits WHERE sourceid = ?",
                         (item['sourceid'], ))
-                    self.execute(u"DELETE FROM sourceprograms WHERE sourceid = ?",
+                    self.execute("DELETE FROM sourceprograms WHERE sourceid = ?",
                         (item['sourceid'], ))
 
-            elif "chanid" in item.keys():
+            elif "chanid" in list(item.keys()):
                 rec = []
                 for channelid in self.query('chan_scid',
                                 chanid = item["chanid"]):
                     rec.append((channelid['sourceid'], channelid['channelid']))
 
                 if len(rec) > 0:
-                    self.execute(u"DELETE FROM fetcheddata WHERE sourceid = ? AND channelid = ?", *rec)
-                    self.execute(u"DELETE FROM fetcheddays WHERE sourceid = ? AND channelid = ?", *rec)
-                    self.execute(u"DELETE FROM credits WHERE sourceid = ? AND channelid = ?", *rec)
-                    self.execute(u"DELETE FROM sourceprograms WHERE sourceid = ? AND channelid = ?", *rec)
+                    self.execute("DELETE FROM fetcheddata WHERE sourceid = ? AND channelid = ?", *rec)
+                    self.execute("DELETE FROM fetcheddays WHERE sourceid = ? AND channelid = ?", *rec)
+                    self.execute("DELETE FROM credits WHERE sourceid = ? AND channelid = ?", *rec)
+                    self.execute("DELETE FROM sourceprograms WHERE sourceid = ? AND channelid = ?", *rec)
 
         elif table == 'programdetails':
-            if not ("sourceid" in item.keys() and "channelid" in item.keys()):
+            if not ("sourceid" in list(item.keys()) and "channelid" in list(item.keys())):
                 return
 
-            if "prog_ID" in item.keys():
-                if isinstance(item["prog_ID"], (str, unicode)):
+            if "prog_ID" in list(item.keys()):
+                if isinstance(item["prog_ID"], str):
                     item["prog_ID"] = [item["prog_ID"]]
 
                 if isinstance(item["prog_ID"], list):
@@ -2722,12 +2719,12 @@ class ProgramCache(Thread):
                     for sd in item["prog_ID"]:
                         rec.append((item['sourceid'], item['channelid'], sd))
 
-                    self.execute(u"DELETE FROM creditdetails " + \
+                    self.execute("DELETE FROM creditdetails " + \
                         "WHERE sourceid = ? AND channelid = ? AND prog_ID = ?", *rec)
-                    self.execute(u"DELETE FROM programdetails " + \
+                    self.execute("DELETE FROM programdetails " + \
                         "WHERE sourceid = ? AND channelid = ? AND prog_ID = ?", *rec)
 
-            elif "start-time" in item.keys():
+            elif "start-time" in list(item.keys()):
                 if isinstance(item["start-time"], datetime.datetime):
                     item["start-time"] = [item["start-time"]]
 
@@ -2737,35 +2734,35 @@ class ProgramCache(Thread):
                         if isinstance(sd, datetime.datetime):
                             rec.append((item['sourceid'], item['channelid'], sd))
 
-                    self.execute(u"DELETE FROM creditdetails " + \
+                    self.execute("DELETE FROM creditdetails " + \
                         "WHERE sourceid = ? AND channelid = ? AND `start-time` = ?", *rec)
-                    self.execute(u"DELETE FROM programdetails " + \
+                    self.execute("DELETE FROM programdetails " + \
                         "WHERE sourceid = ? AND channelid = ? AND `start-time` = ?", *rec)
 
             else:
-                self.execute(u"DELETE FROM creditdetails WHERE sourceid = ? AND channelid = ?",
+                self.execute("DELETE FROM creditdetails WHERE sourceid = ? AND channelid = ?",
                     (item['sourceid'], item['channelid']))
-                self.execute(u"DELETE FROM programdetails WHERE sourceid = ? AND channelid = ?",
+                self.execute("DELETE FROM programdetails WHERE sourceid = ? AND channelid = ?",
                     (item['sourceid'], item['channelid']))
 
-        elif table == 'ttvdb' and 'tid' in item.keys():
+        elif table == 'ttvdb' and 'tid' in list(item.keys()):
             with self.pconn:
-                self.pconn.execute(u"DELETE FROM ttvdb_alias WHERE tid = ?",  (int(item['tid']), ))
-                self.pconn.execute(u"DELETE FROM ttvdb WHERE tid = ?",  (int(item['tid']), ))
-                self.pconn.execute(u"DELETE FROM ttvdbint WHERE tid = ?",  (int(item['tid']), ))
-                self.pconn.execute(u"DELETE FROM episodesint " + \
+                self.pconn.execute("DELETE FROM ttvdb_alias WHERE tid = ?",  (int(item['tid']), ))
+                self.pconn.execute("DELETE FROM ttvdb WHERE tid = ?",  (int(item['tid']), ))
+                self.pconn.execute("DELETE FROM ttvdbint WHERE tid = ?",  (int(item['tid']), ))
+                self.pconn.execute("DELETE FROM episodesint " + \
                         "WHERE tepid = (SELECT tepid FROM episodes WHERE tid = ?)",  (int(item['tid']), ))
-                self.pconn.execute(u"DELETE FROM episodes WHERE tid = ?",  (int(item['tid']), ))
-                self.pconn.execute(u"DELETE FROM epcount WHERE tid = ?",  (int(item['tid']), ))
-                self.pconn.execute(u"DELETE FROM ttvdbcredits WHERE tid = ?",  (int(item['tid']), ))
-                self.pconn.execute(u"DELETE FROM ttvdbmetadata WHERE tid = ?",  (int(item['tid']), ))
+                self.pconn.execute("DELETE FROM episodes WHERE tid = ?",  (int(item['tid']), ))
+                self.pconn.execute("DELETE FROM epcount WHERE tid = ?",  (int(item['tid']), ))
+                self.pconn.execute("DELETE FROM ttvdbcredits WHERE tid = ?",  (int(item['tid']), ))
+                self.pconn.execute("DELETE FROM ttvdbmetadata WHERE tid = ?",  (int(item['tid']), ))
 
     def clear(self, table):
         """
         Clears the table (i.e. empties it)
         """
-        self.execute(u"DROP TABLE IF EXISTS %s" % table)
-        self.execute(u"VACUUM")
+        self.execute("DROP TABLE IF EXISTS %s" % table)
+        self.execute("VACUUM")
         self.create_table(table)
         self.check_indexes(table)
 
@@ -2776,19 +2773,19 @@ class ProgramCache(Thread):
         """
         dnow = datetime.datetime.today() - datetime.timedelta(days = 1)
         dttvdb = dnow.date() - datetime.timedelta(days = 29)
-        self.execute(u"DELETE FROM sourceprograms " + \
+        self.execute("DELETE FROM sourceprograms " + \
                         "WHERE `scandate` < ? OR `scandate` = ?", (dnow.date(), None))
-        self.execute(u"DELETE FROM credits " + \
+        self.execute("DELETE FROM credits " + \
                         "WHERE `scandate` < ? OR `scandate` = ?", (dnow.date(), None))
-        self.execute(u"DELETE FROM programdetails " + \
+        self.execute("DELETE FROM programdetails " + \
                         "WHERE `scandate` < ? OR `scandate` = ?", (dnow.date(), None))
-        self.execute(u"DELETE FROM creditdetails " + \
+        self.execute("DELETE FROM creditdetails " + \
                         "WHERE `scandate` < ? OR `scandate` = ?", (dnow.date(), None))
-        self.execute(u"DELETE FROM fetcheddays " + \
+        self.execute("DELETE FROM fetcheddays " + \
                         "WHERE `scandate` < ? OR `scandate` = ?", (dnow.date(), None))
         #~ self.execute(u"DELETE FROM ttvdb WHERE tdate < ?", (dttvdb,))
 
-        self.execute(u"VACUUM")
+        self.execute("VACUUM")
 
     def execute(self, qstring, *parameters):
         if self.config.write_info_files:
@@ -2875,17 +2872,17 @@ class InfoFiles():
         if source.all_channels == {}:
             source.get_channels()
 
-        for channelid, channel in source.all_channels.items():
-            if not (channelid in source_channels[source.proc_id].values() or channelid in source.source_data['empty_channels']):
-                self.lineup_changes.append( u'New channel on %s => %s (%s)\n' % (source.source, channelid, channel['name']))
+        for channelid, channel in list(source.all_channels.items()):
+            if not (channelid in list(source_channels[source.proc_id].values()) or channelid in source.source_data['empty_channels']):
+                self.lineup_changes.append( 'New channel on %s => %s (%s)\n' % (source.source, channelid, channel['name']))
 
-        for chanid, channelid in source_channels[source.proc_id].items():
-            if not (channelid in source.all_channels.keys() or channelid in source.source_data['empty_channels']):
-                self.lineup_changes.append( u'Removed channel on %s => %s (%s)\n' % (source.source, channelid, chanid))
+        for chanid, channelid in list(source_channels[source.proc_id].items()):
+            if not (channelid in list(source.all_channels.keys()) or channelid in source.source_data['empty_channels']):
+                self.lineup_changes.append( 'Removed channel on %s => %s (%s)\n' % (source.source, channelid, chanid))
 
         for channelid in source.source_data['empty_channels']:
-            if not channelid in source.all_channels.keys():
-                self.lineup_changes.append( u"Empty channelID %s on %s doesn't exist\n" % (channelid, source.source))
+            if not channelid in list(source.all_channels.keys()):
+                self.lineup_changes.append( "Empty channelID %s on %s doesn't exist\n" % (channelid, source.source))
 
         self.lineup_changes.extend(source.lineup_changes)
 
@@ -2903,7 +2900,7 @@ class InfoFiles():
              #~ if data[0][:] == '':
                  #~ stype = ''
 
-        if not stype in self.sql_data.keys():
+        if not stype in list(self.sql_data.keys()):
             self.sql_data[stype] = []
 
         self.sql_data[stype].append(data)
@@ -2914,13 +2911,13 @@ class InfoFiles():
     def addto_raw_string(self, string):
         if self.write_info_files:
             with self.info_lock:
-                self.raw_string = unicode(self.raw_string + string)
+                self.raw_string = str(self.raw_string + string)
 
     def write_raw_string(self, string):
         if self.write_info_files:
             with self.info_lock:
-                self.raw_string = unicode(self.raw_string + string)
-                self.raw_output.write(self.raw_string + u'\n')
+                self.raw_string = str(self.raw_string + string)
+                self.raw_output.write(self.raw_string + '\n')
                 self.raw_output.flush()
                 self.raw_string = ''
 
@@ -2950,7 +2947,7 @@ class InfoFiles():
                 if i.strip() == '\n':
                     continue
 
-                self.raw_output.write(i + u'\n')
+                self.raw_output.write(i + '\n')
 
             self.raw_output.flush()
             self.raw_list = []
@@ -2971,17 +2968,17 @@ class InfoFiles():
                 return '---'
 
             if vname == 'from cache':
-                if 'from cache' in tdict and tdict['from cache']:
+                if tdict.get('from cache', False):
                     return '*'
 
                 return ''
 
-            if not vname in tdict.keys():
+            if not vname in list(tdict.keys()):
                 return '--- '
 
             if isinstance(tdict[vname], datetime.datetime):
                 if vname == 'start-time' and 'is_gs' in tdict:
-                    return u'#%s' % self.config.in_output_tz(tdict[vname]).strftime('%d %b %H:%M')
+                    return '#%s' % self.config.in_output_tz(tdict[vname]).strftime('%d %b %H:%M')
 
                 else:
                     return self.config.in_output_tz(tdict[vname]).strftime('%d %b %H:%M')
@@ -3000,18 +2997,18 @@ class InfoFiles():
         with self.info_lock:
             if isinstance(programs, tv_grab_channel.ChannelNode):
 
-                if source in self.config.channelsource.keys():
+                if source in list(self.config.channelsource.keys()):
                     sname = self.config.channelsource[source].source
 
                 else:
                     sname = source
 
-                fstr = u' (%3.0f/%2.0f/%2.0f) after merging from: %s\n' % \
+                fstr = ' (%3.0f/%2.0f/%2.0f) after merging from: %s\n' % \
                     (programs.program_count(), len(programs.group_slots), \
                     len(programs.program_gaps),sname)
 
                 for pnode in programs:
-                    fstr += u'  %s: [%s][%s] [%s:%s/%s] %s; %s %s\n' % (\
+                    fstr += '  %s: [%s][%s] [%s:%s/%s] %s; %s %s\n' % (\
                                     pnode.get_start_stop(), \
                                     pnode.get_value('ID').rjust(15), \
                                     pnode.get_value('genre')[0:10].rjust(10), \
@@ -3023,14 +3020,14 @@ class InfoFiles():
                                     pnode.get_value('rating'))
 
                     if pnode.next_gap != None:
-                        fstr += u'  %s: GAP %s minuten\n' % \
+                        fstr += '  %s: GAP %s minuten\n' % \
                             (pnode.next_gap.get_start_stop(), pnode.next_gap.length.total_seconds()/60)
 
             else:
                 plist = deepcopy(programs)
                 if group_slots != None:
                     pgs = deepcopy(group_slots)
-                    fstr = u' (%3.0f/%2.0f) from: %s\n' % \
+                    fstr = ' (%3.0f/%2.0f) from: %s\n' % \
                         (len(plist), len(pgs), self.config.channelsource[source].source)
                     if len(pgs) > 0:
                         for item in pgs:
@@ -3039,7 +3036,7 @@ class InfoFiles():
                         plist.extend(pgs)
 
                 else:
-                    fstr = u' (%3.0f) from: %s\n' % (len(plist),  self.config.channelsource[source].source)
+                    fstr = ' (%3.0f) from: %s\n' % (len(plist),  self.config.channelsource[source].source)
 
                 plist.sort(key=lambda program: (program['start-time']))
 
@@ -3047,7 +3044,7 @@ class InfoFiles():
                     extra = value('rerun') + value('teletext') + value('new') + value('last-chance') + value('premiere')
                     extra2 = value('HD') + value('widescreen') + value('blackwhite')
 
-                    fstr += u'  %s%s - %s: [%s][%s] [%s:%s/%s] %s: %s; %s %s\n' % (\
+                    fstr += '  %s%s - %s: [%s][%s] [%s:%s/%s] %s: %s; %s %s\n' % (\
                                     value('from cache'), value('start-time'), value('stop-time'), \
                                     value('ID').rjust(15), value('genre')[0:10].rjust(10), \
                                     value('season'), value('episode'), value('episodecount'), \
@@ -3056,9 +3053,9 @@ class InfoFiles():
 
             if not chanid in  self.fetch_strings:
                  self.fetch_strings[chanid] = {}
-                 self.fetch_strings[chanid]['name'] = u'Channel: (%s) %s\n' % (chanid, chan_name)
+                 self.fetch_strings[chanid]['name'] = 'Channel: (%s) %s\n' % (chanid, chan_name)
 
-            if source in self.config.channelsource.keys():
+            if source in list(self.config.channelsource.keys()):
                 if not source in  self.fetch_strings[chanid]:
                     self.fetch_strings[chanid][source] = fstr
 
@@ -3099,9 +3096,9 @@ class InfoFiles():
         if self.fetch_list != None:
             chan_list = []
             combine_list = []
-            for chanid in channels.keys():
+            for chanid in list(channels.keys()):
                 if (channels[chanid].active or channels[chanid].is_child) and chanid in self.fetch_strings:
-                    if chanid in combined_channels.keys():
+                    if chanid in list(combined_channels.keys()):
                         combine_list.append(chanid)
 
                     else:
@@ -3111,10 +3108,10 @@ class InfoFiles():
             for chanid in chan_list:
                 self.fetch_list.write(self.fetch_strings[chanid]['name'])
                 for s in channels[chanid].merge_order:
-                    if s in self.fetch_strings[chanid].keys():
+                    if s in list(self.fetch_strings[chanid].keys()):
                         self.fetch_list.write(self.fetch_strings[chanid][s])
 
-                if chanid in combined_channels.keys() and 'channels' in self.fetch_strings[chanid]:
+                if chanid in list(combined_channels.keys()) and 'channels' in self.fetch_strings[chanid]:
                     self.fetch_list.write(self.fetch_strings[chanid]['channels'])
 
             self.fetch_list.close()
@@ -3123,50 +3120,50 @@ class InfoFiles():
             self.raw_output.close()
 
         if self.sqllog != None:
-            if 'Unknown request' in self.sql_data.keys():
+            if 'Unknown request' in list(self.sql_data.keys()):
                 data = self.sql_data['Unknown request']
                 data.sort()
                 self.sqllog.write('Unknown requests\n')
                 for d in data:
                     self.sqllog.write('    "%s": "%s": %s\n' % d)
 
-            if 'Unknown select Field' in self.sql_data.keys():
+            if 'Unknown select Field' in list(self.sql_data.keys()):
                 data = self.sql_data['Unknown select Field']
                 data.sort()
                 self.sqllog.write('Unknown select Field\n')
                 for d in data:
                     self.sqllog.write('    "%s".%s\n' % d)
 
-            if 'Unknown where Field' in self.sql_data.keys():
+            if 'Unknown where Field' in list(self.sql_data.keys()):
                 data = self.sql_data['Unknown where Field']
                 data.sort()
                 self.sqllog.write('Unknown where Field\n')
                 for d in data:
                     self.sqllog.write('    "%s"."%s" = %s\n' % d)
 
-            if 'Unknown add Fields' in self.sql_data.keys():
+            if 'Unknown add Fields' in list(self.sql_data.keys()):
                 data = self.sql_data['Unknown add Fields']
                 data.sort()
                 self.sqllog.write('Unknown add Fields\n')
                 for d in data:
-                    for f, v in d[1].items():
+                    for f, v in list(d[1].items()):
                         self.sqllog.write('    "%s"."%s" = %s\n' % (d[0], f, v))
 
-            if 'fetching one' in self.sql_data.keys():
+            if 'fetching one' in list(self.sql_data.keys()):
                 data = self.sql_data['fetching one']
                 data.sort()
                 self.sqllog.write('Query Single Records\n')
                 for d in data:
                     self.sqllog.write('    "%s"\n        %s\n' % d)
 
-            if 'fetching all' in self.sql_data.keys():
+            if 'fetching all' in list(self.sql_data.keys()):
                 data = self.sql_data['fetching all']
                 data.sort()
                 self.sqllog.write('Query All Record\n')
                 for d in data:
                     self.sqllog.write('    "%s"\n        %s\n' % d)
 
-            if 'insert' in self.sql_data.keys():
+            if 'insert' in list(self.sql_data.keys()):
                 data = self.sql_data['insert']
                 data.sort()
                 self.sqllog.write('Inserting Record\'s\n')
@@ -3179,7 +3176,7 @@ class InfoFiles():
                     except:
                         self.sqllog.write('%s\n' % (traceback.format_exc(), ))
 
-            if 'update' in self.sql_data.keys():
+            if 'update' in list(self.sql_data.keys()):
                 data = self.sql_data['update']
                 data.sort()
                 self.sqllog.write('Updating Record\n')
@@ -3192,7 +3189,7 @@ class InfoFiles():
                     except:
                         self.sqllog.write('%s\n' % (traceback.format_exc(), ))
 
-            if 'delete' in self.sql_data.keys():
+            if 'delete' in list(self.sql_data.keys()):
                 data = self.sql_data['delete']
                 data.sort()
                 self.sqllog.write('Deleting Record(s)\'s\n')
@@ -3205,7 +3202,7 @@ class InfoFiles():
                     except:
                         self.sqllog.write('%s\n' % (traceback.format_exc(), ))
 
-            if 'executing' in self.sql_data.keys():
+            if 'executing' in list(self.sql_data.keys()):
                 data = self.sql_data['executing']
                 data.sort()
                 self.sqllog.write('Executing\n')
@@ -3233,7 +3230,7 @@ class InfoFiles():
                 tmp_list.extend(ds)
                 tmp_list.sort()
                 for i in tmp_list:
-                    f.write(u'%s\n' % i)
+                    f.write('%s\n' % i)
 
                 f.close()
 
@@ -3297,17 +3294,17 @@ class DD_Convert(DataDef_Convert):
                 self.csource_data["rating"] = data_value("rating", source_data, dict)
                 self.csource_data["cattrans"] = {}
                 if cattrans_type == 1:
-                    for k, v in data_value("cattrans", source_data, dict).items():
+                    for k, v in list(data_value("cattrans", source_data, dict).items()):
                         k = k.lower().strip()
                         if isinstance(v, dict):
                             self.csource_data["cattrans"][k] ={}
-                            for k2, gg in v.items():
+                            for k2, gg in list(v.items()):
                                 k2 = k2.lower().strip()
                                 self.csource_data["cattrans"][k][k2] = gg
 
                 elif cattrans_type == 2:
                     self.csource_data["cattrans_keywords"] = data_value("cattrans_keywords", source_data, dict)
-                    for k, v in data_value("cattrans", source_data, dict).items():
+                    for k, v in list(data_value("cattrans", source_data, dict).items()):
                         k = k.lower().strip()
                         self.csource_data["cattrans"][k] = v
 
@@ -3335,7 +3332,7 @@ class DD_Convert(DataDef_Convert):
                         del self.csource_data[ptype]["default-item-count"]
                         self.csource_data[ptype]['alt_useragent'] = \
                             data_value([ptype, "alt_useragent"], source_data, bool,  self.csource_data["alt_useragent"])
-                        if not 'cookiejar' in self.csource_data[ptype].keys():
+                        if not 'cookiejar' in list(self.csource_data[ptype].keys()):
                             self.csource_data[ptype]['cookiejar'] = \
                                 data_value([ptype, "cookiejar"], source_data, dict,  self.csource_data["cookiejar"])
 
@@ -3408,25 +3405,25 @@ class test_JSON(test_json_struct.test_JSON):
 
     def add_extra_lookup_lists(self, struct_name):
         if struct_name == 'struct-grabberfile':
-            ilids = self.config.xml_output.logo_provider.keys()[:]
+            ilids = list(self.config.xml_output.logo_provider.keys())[:]
             slids = []
             for li in ilids:
-                slids.append(unicode(li))
+                slids.append(str(li))
 
-            if 'lst-logoid' in self.lookup_lists.keys():
+            if 'lst-logoid' in list(self.lookup_lists.keys()):
                 self.lookup_lists['lst-logoid'].extend(ilids)
 
             else:
                  self.lookup_lists['lst-logoid'] = ilids
 
             self.lookup_lists['lst-logoid'].extend(slids)
-            if 'int-lst-logoid' in self.lookup_lists.keys():
+            if 'int-lst-logoid' in list(self.lookup_lists.keys()):
                 self.lookup_lists['int-lst-logoid'].extend(ilids)
 
             else:
                  self.lookup_lists['int-lst-logoid'] = ilids
 
-            if 'str-lst-logoid' in self.lookup_lists.keys():
+            if 'str-lst-logoid' in list(self.lookup_lists.keys()):
                 self.lookup_lists['str-lst-logoid'].extend(slids)
 
             else:
@@ -3443,9 +3440,9 @@ class test_Source():
         self.lineup = None
         self.opt_dict = {}
         self.opt_dict['grabber_name'] = ''
-        self.opt_dict['source_dir'] = u'%s/sources' % self.config.opt_dict['xmltv_dir']
+        self.opt_dict['source_dir'] = '%s/sources' % self.config.opt_dict['xmltv_dir']
         self.opt_dict['grabber_file_dir'] = ''
-        self.opt_dict['report_dir'] = u'%s/tv_grab_output' % self.config.opt_dict['home_dir']
+        self.opt_dict['report_dir'] = '%s/tv_grab_output' % self.config.opt_dict['home_dir']
         self.opt_dict['tree_file'] = 'datatree.txt'
         self.opt_dict['parse_file'] = 'dataparse.txt'
         self.opt_dict['test_modus'] = 'channels'
@@ -3494,7 +3491,7 @@ class test_Source():
 
             else:
                 sid = self.opt_dict['sourceid']
-                if not sid in self.config.sources.keys():
+                if not sid in list(self.config.sources.keys()):
                     self.config.log('Source %d is not defined!\n')
                     return(1)
 
@@ -3591,11 +3588,11 @@ class test_Source():
             self.opt_dict['offset'] = 0
             self.config.opt_dict['offset'] = 0
 
-        if self.opt_dict['chanid'] not in self.config.channels.keys():
+        if self.opt_dict['chanid'] not in list(self.config.channels.keys()):
             self.config.log('The requested chanid "%s" does not exist!\n' % self.opt_dict['chanid'])
             return(0)
 
-        for chanid, channel in self.config.channels.items():
+        for chanid, channel in list(self.config.channels.items()):
             if chanid == self.opt_dict['chanid']:
                 channel.active = True
                 channelid = channel.get_channelid(self.source.proc_id)
@@ -3634,7 +3631,7 @@ class test_Source():
             detailids = {}
             for p in self.source.data:
                 for k in ('detail_url', 'name', 'start-time', 'channelid'):
-                    if not k in p.keys():
+                    if not k in list(p.keys()):
                         break
 
                 else:
@@ -3674,7 +3671,7 @@ class test_Source():
         pdata = {}
         pdata['chanid'] = self.opt_dict['chanid']
         pdata['channelid'] = pdata['chanid']
-        if self.opt_dict['chanid'] in self.config.channels.keys():
+        if self.opt_dict['chanid'] in list(self.config.channels.keys()):
             pdata['channelid'] = self.config.channels[self.opt_dict['chanid']].get_channelid(self.source.proc_id)
 
         pdata['detail_url'] = self.opt_dict['detailid']
@@ -3684,7 +3681,7 @@ class test_Source():
 
     def test_lineup(self):
         self.config.infofiles.lineup_changes = []
-        for sid, source in self.config.sources.items():
+        for sid, source in list(self.config.sources.items()):
             source_name = source["json file"]
             if self.test_jsonfile(self.opt_dict['source_dir'], source_name) > 0:
                 self.config.log('Errors were encountered. See %s/test-%s.txt\n' % (self.opt_dict['report_dir'], source_name))
@@ -3719,7 +3716,7 @@ class test_Source():
 
                     cfg_option = a[0].lower().strip()
                     if cfg_option in ('source_dir', 'grabber_file_dir', 'grabber_name', 'test_modus', 'chanid', 'report_dir'):
-                        self.opt_dict[cfg_option] = unicode(a[1]).strip()
+                        self.opt_dict[cfg_option] = str(a[1]).strip()
 
                     if cfg_option in ('sourceid', 'offset'):
                         self.opt_dict[cfg_option] = int(a[1])
@@ -3748,10 +3745,10 @@ class test_Source():
             return(1)
 
         if self.opt_dict['grabber_name'] == 'tv_grab_nl':
-            self.config.opt_dict['config_file'] = u'%s/%s3_py.conf' % (self.config.opt_dict['xmltv_dir'], self.opt_dict['grabber_name'])
+            self.config.opt_dict['config_file'] = '%s/%s3_py.conf' % (self.config.opt_dict['xmltv_dir'], self.opt_dict['grabber_name'])
 
         else:
-            self.config.opt_dict['config_file'] = u'%s/%s_py.conf' % (self.config.opt_dict['xmltv_dir'], self.opt_dict['grabber_name'])
+            self.config.opt_dict['config_file'] = '%s/%s_py.conf' % (self.config.opt_dict['xmltv_dir'], self.opt_dict['grabber_name'])
 
         self.config.opt_dict['log_file'] = '%s/tv_grab_test.log' % (self.opt_dict['report_dir'])
         if self.config.validate_option('config_file') == None:
@@ -3780,7 +3777,7 @@ class test_Source():
             f = self.config.IO_func.open_file('%s/tv_grab_test.conf' % config_dir, 'w')
             for n in ('source_dir', 'grabber_file_dir', 'grabber_name', 'test_modus',
                         'offset', 'sourceid', 'chanid', 'detailid', 'report_dir', 'report_level'):
-                f.write(u'%s = %s\n' % (n, self.opt_dict[n]))
+                f.write('%s = %s\n' % (n, self.opt_dict[n]))
 
             f.close()
 
@@ -3789,8 +3786,8 @@ class test_Source():
             return(2)
 
     def read_commandline(self):
-        description = u"%s: %s\n" % (self.config.country, self.config.version(True)) + \
-                        u"The Netherlands: %s\n" % self.config.version(True, True) + \
+        description = "%s: %s\n" % (self.config.country, self.config.version(True)) + \
+                        "The Netherlands: %s\n" % self.config.version(True, True) + \
                         self.config.text('config', 100, (self.config.opt_dict['home_dir'], ),  type = 'help')
 
         parser = argparse.ArgumentParser(description = description, formatter_class=argparse.RawTextHelpFormatter)
@@ -3825,7 +3822,7 @@ class test_Source():
         parser.add_argument('-i', '--detailid', type = str, default = None, dest = 'detailid',
                         metavar = '<id>', help =self.config.text('config', 108, type='help'))
 
-        parser.add_argument('-o', '--offset', type = int, default = None, dest = 'offset', choices=range(0, 14),
+        parser.add_argument('-o', '--offset', type = int, default = None, dest = 'offset', choices=list(range(0, 14)),
                         metavar = '<days>', help =self.config.text('config', 102, type='help'))
 
         parser.add_argument('--show-sources', action = 'store_true', default = False, dest = 'show_sources',

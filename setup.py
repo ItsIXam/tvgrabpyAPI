@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 '''
 This Package contains an API for tv_grabbers Alle data is defined in JSON files
@@ -26,7 +26,7 @@ else:
 classifiers=[
     'Operating System :: Microsoft :: Windows',
     'Operating System :: POSIX',
-    'Programming Language :: Python :: 2.7',
+    'Programming Language :: Python :: 3.8',
     'Intended Audience :: Developers',
     'Intended Audience :: End Users/Desktop',
     'License :: Public Domain',

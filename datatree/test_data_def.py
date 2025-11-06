@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 
 # testjson.test_file accepts 3 parameters
@@ -19,9 +19,10 @@
 # 512: Report on either selection (without errors)
 
 import sys
-from tvgrabpyAPI import tv_grab_IO
+import test_json_struct
 
-testjson = tv_grab_IO.test_JSON()
+testjson = test_json_struct.test_JSON()
+# This value holds the struct files and is None on any load errors
 if testjson.struct_tree in (None, []):
     sys.exit(3)
 
@@ -33,9 +34,5 @@ if len(cmd) < 2:
 if len(cmd) == 2:
     sys.exit(testjson.test_file(cmd[1], report_level = (1+2+4+8+16+128+256)))
 
-if len(cmd) > 2:
+if len(cmd) >2:
     sys.exit(testjson.test_file(cmd[1], report_level = int(cmd[2])))
-
-else:
-    # Adding options to test on sourceid
-    pass
