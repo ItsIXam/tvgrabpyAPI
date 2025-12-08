@@ -512,7 +512,7 @@ class DataTree(DataTreeShell, Thread):
         self.rundata = {}
         self.state = 0
         self.config = self.source.config
-        self.fetch_string_parts = re.compile("(.*?[.?!:]+ |.*?\Z)")
+        self.fetch_string_parts = re.compile("(.*?[.?!:]+ |.*?\\Z)")
         DataTreeShell.__init__(self, data_def,
                         warnaction = warnaction,
                         warngoal = self.config.logging.log_queue,
@@ -522,9 +522,9 @@ class DataTree(DataTreeShell, Thread):
         self.fle = source.test_output
         self.simplefilter("error", category = dtDataWarning, severity = 1)
         sys.modules[MODULE_NAME]._warnings.filterwarnings('ignore', category = dtLinkWarning, \
-            message = 'Regex "\\\d\*/\?\(\\\d\*\)\.\*" in: .*?', caller_id = caller_id)
+            message = 'Regex "\\\\d\\*/\\?\\(\\\\d\\*\\)\\.\\*" in: .*?', caller_id = caller_id)
         sys.modules[MODULE_NAME]._warnings.filterwarnings('ignore', category = dtLinkWarning, \
-            message = 'Regex "\(\\\d\*\)/\.\*" in: .*?', caller_id = caller_id)
+            message = 'Regex "\\(\\\\d\\*\\)/\\.\\*" in: .*?', caller_id = caller_id)
 
     def run(self):
         try:
@@ -617,7 +617,7 @@ class DataTree(DataTreeShell, Thread):
 
         def split_kommastring(dstring):
 
-            return re.sub('\) ([A-Z])', '), \g<1>', \
+            return re.sub('\\) ([A-Z])', '), \\g<1>', \
                 re.sub(self.config.language_texts['and'], ', ', \
                 re.sub(self.config.language_texts['and others'], '', dstring))).split(',')
 
@@ -625,7 +625,7 @@ class DataTree(DataTreeShell, Thread):
             if pname in ('', None):
                 return
 
-            if pname[-1] in '\.,:;-':
+            if pname[-1] in '\\.,:;-':
                 pname = pname[:-1].strip()
 
             if not prole in credits:
@@ -667,7 +667,7 @@ class DataTree(DataTreeShell, Thread):
                                 role = self.config.roletrans[k.lower()]
                                 if modus == 1:
                                     for pp in v:
-                                        cn = re.search('(.*?)\((.*?)\)',pp)
+                                        cn = re.search('(.*?)\\((.*?)\\)',pp)
                                         if cn:
                                             add_person(role, cn.group(1).strip(), cn.group(2).strip())
 
